@@ -1,5 +1,6 @@
 /*
  * Copyright (c) 2023, Oracle and/or its affiliates. All rights reserved.
+ * Copyright (c) 2023, JetBrains s.r.o.. All rights reserved.
  * DO NOT ALTER OR REMOVE COPYRIGHT NOTICES OR THIS FILE HEADER.
  *
  * This code is free software; you can redistribute it and/or modify it
@@ -270,6 +271,12 @@ public:
         vk::PhysicalDevice handle = **this;
         return handle && supported;
     }
+
+    uint32_t getMaxImageDimension2D() {
+        const auto& properties = getProperties();
+        return properties.limits.maxImageDimension2D;
+    }
+
 };
 
 Device::Device(const PhysicalDevice& physicalDevice) : vk::raii::Device(nullptr) {
@@ -319,6 +326,9 @@ static bool initDevices() {
     }
 }
 
+extern "C" jint VK_MaxTextureSize() {
+    return physicalDevices.size() > 0 ? physicalDevices[0].getMaxImageDimension2D() : 0;
+}
 
 extern "C" jboolean VK_Init() {
     if (createInstance() && initDevices()) {

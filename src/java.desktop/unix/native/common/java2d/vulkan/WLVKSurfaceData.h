@@ -24,16 +24,36 @@
  * questions.
  */
 
-// These are stubs in case we were built with Vulkan disabled.
-#ifndef VULKAN_ENABLED
-#include "jni.h"
+#ifndef WLVKSurfaceData_h_Included
+#define WLVKSurfaceData_h_Included
 
-jboolean VK_Init() {
-    return 0;
-}
+#include <cstdlib>
+#include <vulkan/vulkan.h>
+#include <SurfaceData.h>
 
-jint VK_MaxTextureSize() {
-    return 0;
-}
+#ifdef HEADLESS
+#define WLVKSDOps void
+#else /* HEADLESS */
 
-#endif
+/**
+ * The WLVKSDOps structure contains the WLVK-specific information for a given
+ * WLVKSurfaceData.  It is referenced by the native OGLSDOps structure.
+ *
+ *     wl_surface* wlSurface;
+ * For onscreen windows, we maintain a reference to that window's associated
+ * wl_surface handle here.  Offscreen surfaces have no associated Window, so for
+ * those surfaces, this value will simply be zero.
+ *
+ *     VkSurfaceKHR* surface;
+ * Vulkan surface associated with this surface.
+ */
+typedef struct _WLVKSDOps {
+    SurfaceDataOps      sdOps;
+    wl_surface*         wlSurface;
+    VkSurfaceKHR*       surface;
+    pthread_mutex_t     lock;
+} WLVKSDOps;
+
+#endif /* HEADLESS */
+
+#endif /* WLVKSurfaceData_h_Included */
