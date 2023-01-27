@@ -866,6 +866,8 @@ static void adjustStatusWindow(Window shell) {
 }
 #endif  /* __linux__ */
 
+static Bool newOverTheSpotIM_createXIC(JNIEnv *env, X11InputMethodData *pX11IMData, Window xWindow);
+
 /*
  * Creates two XICs, one for active clients and the other for passive
  * clients. All information on those XICs are stored in the
@@ -883,6 +885,10 @@ static void adjustStatusWindow(Window shell) {
 static Bool
 createXIC(JNIEnv * env, X11InputMethodData *pX11IMData, Window w)
 {
+    if ( (env != NULL) && (pX11IMData != NULL) && newOverTheSpotIM_createXIC(env, pX11IMData, w) ) {
+        return True;
+    }
+
     XVaNestedList preedit = NULL;
     XVaNestedList status = NULL;
     XIMStyle on_the_spot_styles = XIMPreeditCallbacks,
@@ -1952,4 +1958,141 @@ Java_sun_awt_X11InputMethod_recreateX11InputMethod(JNIEnv *env, jclass cls)
     ximCallback.client_data = NULL;
     XSetIMValues(X11im, XNDestroyCallback, &ximCallback, NULL);
     return JNI_TRUE;
+}
+
+
+// ====================================================================================================================
+// JBR-2460: completely new implementation of XIM client
+// It uses the "over-the-spot" interaction style with the IME
+//   (to be more precise, XIMPreeditPosition | XIMStatusNothing flags. XIMStatusNothing is used because it's the only
+//    style supported by all of fcitx, fcitx5, iBus IMEs)
+// Usage of the new client is controlled by the TODO: system property
+// ====================================================================================================================
+
+static Bool newOverTheSpotIM_isEnabled();
+
+static XIMStyles* newOverTheSpotIM_obtainSupportedInputStylesBy(XIM inputMethod);
+static Bool newOverTheSpotIM_inputStylesContain(XIMStyles* inputStyles, XIMStyle desiredStyle);
+
+/**
+ *
+ * @param env - must not be NULL, UB otherwise
+ * @param pX11IMData - must not be NULL, UB otherwise
+ * @return True if a XIM client has been successfully created, False otherwise
+ */
+static Bool newOverTheSpotIM_createXIC(JNIEnv *env, X11InputMethodData *pX11IMData, Window xWindow)
+{
+    if (env == NULL) {
+        fprintf(stderr, "newOverTheSpotIM_createXIC: env == NULL.\n");
+        return False;
+    }
+    if (pX11IMData == NULL) {
+        fprintf(stderr, "newOverTheSpotIM_createXIC: pX11IMData == NULL.\n");
+        return False;
+    }
+
+    if (!newOverTheSpotIM_isEnabled()) {
+        return False;
+    }
+
+    Bool result = False;
+    const XIMStyle myInputStyle = (XIMPreeditPosition | XIMStatusNothing);
+    const XIM X11imLocalPtr = X11im;
+
+    { // checking whether myInputStyle is supported by the current IM
+        XIMStyles* const supportedInputStyles = newOverTheSpotIM_obtainSupportedInputStylesBy(X11imLocalPtr);
+        if (supportedInputStyles == NULL) {
+            fprintf(stderr, "newOverTheSpotIM_createXIC: failed to obtain supported (by XIM=%p) input styles.\n",
+                    X11imLocalPtr);
+            goto finally;
+        }
+
+        const Bool isMyInputStyleSupported = newOverTheSpotIM_inputStylesContain(supportedInputStyles, myInputStyle);
+
+        XFree(supportedInputStyles);
+
+        if (!isMyInputStyleSupported) {
+            goto finally;
+        }
+    }
+
+    Bool isXNResetStateSupported = False;
+    Bool isXNPreeditStateSupported = False;
+    Bool isXNPreeditStateNotifyCallbackSupported = False;
+    Bool isXNStringConversionSupported = False;
+    Bool isXNStringConversionCallbackSupported = False;
+
+    { // check available optional features
+        XIMValuesList* icValues = NULL;
+        char* const firstWrongArg = XGetIMValues(X11imLocalPtr, XNQueryICValuesList, &icValues, NULL);
+
+        if (firstWrongArg != NULL) {
+            fprintf(stderr, "newOverTheSpotIM_createXIC: XGetIMValues(XNQueryICValuesList) failed and returned \"%s\".\n", firstWrongArg);
+        } else if ((icValues != NULL) && (icValues->supported_values != NULL)) {
+            unsigned short i = 0;
+            for (; i < icValues->count_values; ++i) {
+                const char* const icValue = icValues->supported_values[i];
+                if (icValue == NULL) {
+                    continue;
+                }
+
+                if ( !isXNResetStateSupported && (strcmp(XNResetState, icValue) == 0) ) {
+                    isXNResetStateSupported = True;
+                } else if ( !isXNPreeditStateSupported && (strcmp(XNPreeditState, icValue) == 0) ) {
+                    isXNPreeditStateSupported = True;
+                } else if ( !isXNPreeditStateNotifyCallbackSupported && (strcmp(XNPreeditStateNotifyCallback, icValue) == 0) ) {
+                    isXNPreeditStateNotifyCallbackSupported = True;
+                } else if ( !isXNStringConversionSupported && (strcmp(XNStringConversion, icValue) == 0) ) {
+                    isXNStringConversionSupported = True;
+                } else if ( !isXNStringConversionCallbackSupported && (strcmp(XNStringConversionCallback, icValue) == 0) ) {
+                    isXNStringConversionCallbackSupported = True;
+                }
+            }
+        }
+
+        if (icValues != NULL) {
+            XFree(icValues);
+        }
+    }
+
+    // Xlib requires to set XNFontSet for XIMPreeditPosition for some reason
+    //   (it's not documented and isn't a requirement of X11 spec), otherwise XCreateIC call fails
+
+    // IC values for XCreateIC:
+    // * XNInputStyle
+    // * XNClientWindow
+    // * XNFontSet
+    // * XNDestroyCallback
+    // * XNResetState (optional, ask IM via XGetIMValues(XNQueryICValuesList) before)
+    // * XNPreeditState (optional)
+    // * XNPreeditStateNotifyCallback (optional)
+    // * TODO: XNStringConversion (optional)
+    // * TODO: XNStringConversionCallback (optional)
+    //
+
+    // IC values for XSetICValues:
+    // * XNFocusWindow?
+    // *
+
+    result = True;
+
+finally:
+    return result;
+}
+
+
+Bool newOverTheSpotIM_isEnabled() {
+    // TODO: implementation
+    return True;
+}
+
+
+static XIMStyles* newOverTheSpotIM_obtainSupportedInputStylesBy(XIM inputMethod) {
+    // TODO: implementation
+    return NULL;
+}
+
+static Bool newOverTheSpotIM_inputStylesContain(XIMStyles* inputStyles, XIMStyle desiredStyle) {
+    // TODO: implementation
+    return False;
 }
