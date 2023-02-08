@@ -1974,13 +1974,15 @@ static Bool newOverTheSpotIM_isEnabled();
 static XIMStyles* newOverTheSpotIM_obtainSupportedInputStylesBy(XIM inputMethod);
 static Bool newOverTheSpotIM_inputStylesContain(XIMStyles* inputStyles, XIMStyle desiredStyle);
 
+static XFontSet newOverTheSpotIM_createIcFontSet(Display* display);
+
 /**
  *
  * @param env - must not be NULL, UB otherwise
  * @param pX11IMData - must not be NULL, UB otherwise
  * @return True if a XIM client has been successfully created, False otherwise
  */
-static Bool newOverTheSpotIM_createXIC(JNIEnv *env, X11InputMethodData *pX11IMData, Window xWindow)
+static Bool newOverTheSpotIM_createXIC(JNIEnv* const env, X11InputMethodData* const pX11IMData, const Window xWindow)
 {
     if (env == NULL) {
         fprintf(stderr, "newOverTheSpotIM_createXIC: env == NULL.\n");
@@ -1996,8 +1998,14 @@ static Bool newOverTheSpotIM_createXIC(JNIEnv *env, X11InputMethodData *pX11IMDa
     }
 
     Bool result = False;
+    // XNInputStyle
     const XIMStyle myInputStyle = (XIMPreeditPosition | XIMStatusNothing);
+
     const XIM X11imLocalPtr = X11im;
+    if (X11imLocalPtr == NULL) {
+        fprintf(stderr, "%s: X11imLocalPtr == NULL.\n", __func__);
+        return False;
+    }
 
     { // checking whether myInputStyle is supported by the current IM
         XIMStyles* const supportedInputStyles = newOverTheSpotIM_obtainSupportedInputStylesBy(X11imLocalPtr);
@@ -2055,26 +2063,71 @@ static Bool newOverTheSpotIM_createXIC(JNIEnv *env, X11InputMethodData *pX11IMDa
         }
     }
 
-    // Xlib requires to set XNFontSet for XIMPreeditPosition for some reason
-    //   (it's not documented and isn't a requirement of X11 spec), otherwise XCreateIC call fails
-
     // IC values for XCreateIC:
     // * XNInputStyle
     // * XNClientWindow
-    // * XNFontSet
-    // * XNDestroyCallback
-    // * XNResetState (optional, ask IM via XGetIMValues(XNQueryICValuesList) before)
-    // * XNPreeditState (optional)
-    // * XNPreeditStateNotifyCallback (optional)
-    // * TODO: XNStringConversion (optional)
-    // * TODO: XNStringConversionCallback (optional)
+    // * (not needed here) ~~XNDestroyCallback~~
+    // * XNResetState (may not be supported, ask IM via XGetIMValues(XNQueryICValuesList) before)
+    // * TODO: XNStringConversion (may not be supported)
+    // * TODO: XNStringConversionCallback (may not be supported)
+    // * XNPreeditAttributes:
+    //   * XNFontSet
+    //   * XNSpotLocation
+    //   * XNPreeditState (may not be supported)
+    //   * XNPreeditStateNotifyCallback (may not be supported)
+    //   * TODO: XNArea (not required, has default value)
     //
 
     // IC values for XSetICValues:
     // * XNFocusWindow?
     // *
 
+    Display* const ximDisplay = XDisplayOfIM(X11imLocalPtr);
+    if (ximDisplay == NULL) {
+        fprintf(stderr, "%s: ximDisplay == NULL.\n", __func__);
+        return False;
+    }
+
+    // Xlib requires to set XNFontSet for XIMPreeditPosition for some reason
+    //   (it's not documented and isn't a requirement of X11 spec), otherwise XCreateIC call fails
+    const XFontSet icFontSet = newOverTheSpotIM_createIcFontSet(ximDisplay); // NOLINT(misc-misplaced-const)
+    if (icFontSet == NULL) {
+        fprintf(stderr, "%s: icFontSet == NULL.\n", __func__);
+        return False;
+    }
+
+    // XNSpotLocation
+    XPoint spotLocation = { 0, 0 };
+
+    // XNPreeditAttributes
+    XVaNestedList preeditAttributes = XVaCreateNestedList(
+        0,
+        XNFontSet, icFontSet,
+        XNSpotLocation, &spotLocation,
+        NULL
+    );
+    if (preeditAttributes == NULL) {
+        fprintf(stderr, "%s: preeditAttributes == NULL.\n", __func__);
+        return False;
+    }
+
+    XIC ic = XCreateIC(
+        X11imLocalPtr,
+        XNInputStyle, myInputStyle,
+        XNClientWindow, xWindow,
+        XNPreeditAttributes, preeditAttributes,
+        NULL
+    );
+    if (ic == NULL) {
+        fprintf(stderr, "%s: ic == NULL.\n", __func__);
+        goto finally;
+    }
+
+    XFree(preeditAttributes);
+
     result = True;
+
+    // TODO: error-resistant cleanup
 
 finally:
     return result;
@@ -2095,4 +2148,56 @@ static XIMStyles* newOverTheSpotIM_obtainSupportedInputStylesBy(XIM inputMethod)
 static Bool newOverTheSpotIM_inputStylesContain(XIMStyles* inputStyles, XIMStyle desiredStyle) {
     // TODO: implementation
     return False;
+}
+
+
+static XFontSet newOverTheSpotIM_createIcFontSet(Display* const display)
+{
+    if (display == NULL) {
+        fprintf(stderr, "%s: display == NULL\n", __func__);
+        return NULL;
+    }
+
+    char** missedCharsets = NULL;
+    int missedCharsetsCount = 0;
+    char* defStringReturn = NULL;
+
+    // This parameter defines a set of suitable font sets. The string follows the "X logical font description" format,
+    //   a.k.a. XLFD.
+    // The "-*-*-*-*-*-*-*-*-*-*-*-*-*-*" matches any font set so Xlib or IM will choose any suitable for
+    //   the current locale and required charsets.
+    const char* const fontSetPattern = "-*-*-*-*-*-*-*-*-*-*-*-*-*-*";
+
+    XFontSet result = XCreateFontSet(
+        display,
+        fontSetPattern,
+        &missedCharsets,
+        &missedCharsetsCount,
+        // The last parameter is meaningful only if we would use the font set for drawing by ourselves
+        NULL
+    );
+
+    if (result == NULL) {
+        fprintf(stderr, "%s: failed to create a font set (XCreateFontSet returned NULL)\n", __func__);
+        // no return here to allow the cleanup below
+    }
+
+    if (missedCharsets != NULL) {
+        fprintf(stderr, "%s: no found fonts for %d charsets%s\n", __func__, missedCharsetsCount, (missedCharsetsCount > 0) ? ":" : "");
+
+// missedCharsetsCount can be a quite big number, so let's enumerate all the missed charsets only in debug builds
+#ifdef DEBUG
+        if (missedCharsetsCount > 0) {
+            for (int i = 0; i < missedCharsetsCount; ++i) {
+                fprintf(stderr, "-- \"%s\"\n", (missedCharsets[i] == NULL) ? "<NULL>" : missedCharsets[i]);
+            }
+        }
+#endif // def DEBUG
+
+        XFreeStringList(missedCharsets);
+        missedCharsets = NULL;
+        missedCharsetsCount = 0;
+    }
+
+    return result;
 }
