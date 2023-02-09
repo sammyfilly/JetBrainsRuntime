@@ -130,6 +130,7 @@ typedef struct _X11InputMethodData {
 #endif
     char        *lookup_buf;    /* buffer used for XmbLookupString */
     int         lookup_buf_len; /* lookup buffer size in bytes */
+    XFontSet    fontset;
 
     struct {
         Boolean isBetweenPreeditStartAndPreeditDone;
@@ -410,6 +411,11 @@ freeX11InputMethodData(JNIEnv *env, X11InputMethodData *pX11IMData)
     }
 
     pX11IMData->brokenImDetectionContext.isBetweenPreeditStartAndPreeditDone = False;
+
+    if (pX11IMData->fontset == NULL) {
+        XFreeFontSet(awt_display, pX11IMData->fontset);
+        pX11IMData->fontset = NULL;
+    }
 
     free((void *)pX11IMData);
 }
@@ -885,10 +891,6 @@ static Bool newOverTheSpotIM_createXIC(JNIEnv *env, X11InputMethodData *pX11IMDa
 static Bool
 createXIC(JNIEnv * env, X11InputMethodData *pX11IMData, Window w)
 {
-    if ( (env != NULL) && (pX11IMData != NULL) && newOverTheSpotIM_createXIC(env, pX11IMData, w) ) {
-        return True;
-    }
-
     XVaNestedList preedit = NULL;
     XVaNestedList status = NULL;
     XIMStyle on_the_spot_styles = XIMPreeditCallbacks,
@@ -1480,6 +1482,8 @@ Java_sun_awt_X11_XInputMethod_createXICNative(JNIEnv *env,
 
     setX11InputMethodData(env, this, pX11IMData);
 
+    pX11IMData->fontset = NULL;
+
 finally:
     AWT_UNLOCK();
     return (pX11IMData != NULL);
@@ -1985,11 +1989,11 @@ static XFontSet newOverTheSpotIM_createIcFontSet(Display* display);
 static Bool newOverTheSpotIM_createXIC(JNIEnv* const env, X11InputMethodData* const pX11IMData, const Window xWindow)
 {
     if (env == NULL) {
-        fprintf(stderr, "newOverTheSpotIM_createXIC: env == NULL.\n");
+        fprintf(stderr, "%s: env == NULL.\n", __func__);
         return False;
     }
     if (pX11IMData == NULL) {
-        fprintf(stderr, "newOverTheSpotIM_createXIC: pX11IMData == NULL.\n");
+        fprintf(stderr, "%s: pX11IMData == NULL.\n", __func__);
         return False;
     }
 
@@ -1997,21 +2001,66 @@ static Bool newOverTheSpotIM_createXIC(JNIEnv* const env, X11InputMethodData* co
         return False;
     }
 
-    Bool result = False;
-    // XNInputStyle
-    const XIMStyle myInputStyle = (XIMPreeditPosition | XIMStatusNothing);
+    // IC values for XCreateIC:
+    // * XNInputStyle
+    // * XNClientWindow
+    // * (not needed here) ~~XNDestroyCallback~~
+    // * XNResetState (may not be supported, ask IM via XGetIMValues(XNQueryICValuesList) before)
+    // * TODO: XNStringConversion (may not be supported)
+    // * TODO: XNStringConversionCallback (may not be supported)
+    // * XNPreeditAttributes:
+    //   * XNFontSet
+    //   * XNSpotLocation
+    //   * XNPreeditState (may not be supported)
+    //   * XNPreeditStateNotifyCallback (may not be supported)
+    //   * TODO: XNArea (not required, has default value)
+    //
 
+    // IC values for XSetICValues:
+    // * XNFocusWindow?
+    // *
+
+    Bool result = False;
+
+    // XNInputStyle, doesn't have to be freed
+    const XIMStyle myInputStyle = (XIMPreeditPosition | XIMStatusNothing);
+    // Xlib requires to set XNFontSet for XIMPreeditPosition for some reason
+    //   (it's not documented and isn't a requirement of X11 spec), otherwise XCreateIC call fails
+    // XNSpotLocation, doesn't have to be freed
+    XPoint spotLocation = { 0, 0 };
+    // XNFontSet, has to be freed only if the function returns False
+    XFontSet icFontSet = NULL;
+    // XNPreeditAttributes, has always to be freed
+    XVaNestedList preeditAttributes = NULL;
+
+    // Has to be freed only if the function returns False
+    XIC ic = NULL;
+
+    Bool isXNResetStateSupported = False;
+    Bool isXNPreeditStateSupported = False;
+    Bool isXNPreeditStateNotifyCallbackSupported = False;
+    Bool isXNStringConversionSupported = False;
+    Bool isXNStringConversionCallbackSupported = False;
+
+    // Doesn't have to be freed
     const XIM X11imLocalPtr = X11im;
     if (X11imLocalPtr == NULL) {
         fprintf(stderr, "%s: X11imLocalPtr == NULL.\n", __func__);
-        return False;
+        goto finally;
+    }
+
+    // Doesn't have to be freed
+    Display* const ximDisplay = XDisplayOfIM(X11imLocalPtr);
+    if (ximDisplay == NULL) {
+        fprintf(stderr, "%s: ximDisplay == NULL.\n", __func__);
+        goto finally;
     }
 
     { // checking whether myInputStyle is supported by the current IM
         XIMStyles* const supportedInputStyles = newOverTheSpotIM_obtainSupportedInputStylesBy(X11imLocalPtr);
         if (supportedInputStyles == NULL) {
-            fprintf(stderr, "newOverTheSpotIM_createXIC: failed to obtain supported (by XIM=%p) input styles.\n",
-                    X11imLocalPtr);
+            fprintf(stderr, "%s: failed to obtain supported (by XIM=%p) input styles.\n",
+                    __func__, X11imLocalPtr);
             goto finally;
         }
 
@@ -2020,22 +2069,17 @@ static Bool newOverTheSpotIM_createXIC(JNIEnv* const env, X11InputMethodData* co
         XFree(supportedInputStyles);
 
         if (!isMyInputStyleSupported) {
+            fprintf(stderr, "%s: the input style %llu is not supported.\n", __func__, (unsigned long long)myInputStyle);
             goto finally;
         }
     }
-
-    Bool isXNResetStateSupported = False;
-    Bool isXNPreeditStateSupported = False;
-    Bool isXNPreeditStateNotifyCallbackSupported = False;
-    Bool isXNStringConversionSupported = False;
-    Bool isXNStringConversionCallbackSupported = False;
 
     { // check available optional features
         XIMValuesList* icValues = NULL;
         char* const firstWrongArg = XGetIMValues(X11imLocalPtr, XNQueryICValuesList, &icValues, NULL);
 
         if (firstWrongArg != NULL) {
-            fprintf(stderr, "newOverTheSpotIM_createXIC: XGetIMValues(XNQueryICValuesList) failed and returned \"%s\".\n", firstWrongArg);
+            fprintf(stderr, "%s: XGetIMValues(XNQueryICValuesList) failed and returned \"%s\".\n", __func__, firstWrongArg);
         } else if ((icValues != NULL) && (icValues->supported_values != NULL)) {
             unsigned short i = 0;
             for (; i < icValues->count_values; ++i) {
@@ -2063,44 +2107,13 @@ static Bool newOverTheSpotIM_createXIC(JNIEnv* const env, X11InputMethodData* co
         }
     }
 
-    // IC values for XCreateIC:
-    // * XNInputStyle
-    // * XNClientWindow
-    // * (not needed here) ~~XNDestroyCallback~~
-    // * XNResetState (may not be supported, ask IM via XGetIMValues(XNQueryICValuesList) before)
-    // * TODO: XNStringConversion (may not be supported)
-    // * TODO: XNStringConversionCallback (may not be supported)
-    // * XNPreeditAttributes:
-    //   * XNFontSet
-    //   * XNSpotLocation
-    //   * XNPreeditState (may not be supported)
-    //   * XNPreeditStateNotifyCallback (may not be supported)
-    //   * TODO: XNArea (not required, has default value)
-    //
-
-    // IC values for XSetICValues:
-    // * XNFocusWindow?
-    // *
-
-    Display* const ximDisplay = XDisplayOfIM(X11imLocalPtr);
-    if (ximDisplay == NULL) {
-        fprintf(stderr, "%s: ximDisplay == NULL.\n", __func__);
-        return False;
-    }
-
-    // Xlib requires to set XNFontSet for XIMPreeditPosition for some reason
-    //   (it's not documented and isn't a requirement of X11 spec), otherwise XCreateIC call fails
-    const XFontSet icFontSet = newOverTheSpotIM_createIcFontSet(ximDisplay); // NOLINT(misc-misplaced-const)
+    icFontSet = newOverTheSpotIM_createIcFontSet(ximDisplay);
     if (icFontSet == NULL) {
         fprintf(stderr, "%s: icFontSet == NULL.\n", __func__);
-        return False;
+        goto finally;
     }
 
-    // XNSpotLocation
-    XPoint spotLocation = { 0, 0 };
-
-    // XNPreeditAttributes
-    XVaNestedList preeditAttributes = XVaCreateNestedList(
+    preeditAttributes = XVaCreateNestedList(
         0,
         XNFontSet, icFontSet,
         XNSpotLocation, &spotLocation,
@@ -2108,28 +2121,48 @@ static Bool newOverTheSpotIM_createXIC(JNIEnv* const env, X11InputMethodData* co
     );
     if (preeditAttributes == NULL) {
         fprintf(stderr, "%s: preeditAttributes == NULL.\n", __func__);
-        return False;
+        goto finally;
     }
 
-    XIC ic = XCreateIC(
+    ic = XCreateIC(
         X11imLocalPtr,
         XNInputStyle, myInputStyle,
         XNClientWindow, xWindow,
         XNPreeditAttributes, preeditAttributes,
         NULL
     );
+
+    XFree(preeditAttributes); preeditAttributes = NULL;
+
     if (ic == NULL) {
         fprintf(stderr, "%s: ic == NULL.\n", __func__);
         goto finally;
     }
 
-    XFree(preeditAttributes);
+    // Unset focus to avoid unexpected IM on
+    setXICFocus(ic, False);
+
+    pX11IMData->ic_active = ic;
+    pX11IMData->fontset = icFontSet;
 
     result = True;
 
-    // TODO: error-resistant cleanup
+finally: // cleanup everything in the order opposite of the initialization order
+    if (!result && (ic != NULL)) {
+        XDestroyIC(ic);
+        ic = NULL;
+    }
 
-finally:
+    if (preeditAttributes != NULL) {
+        XFree(preeditAttributes);
+        preeditAttributes = NULL;
+    }
+
+    if (!result && (icFontSet != NULL)) {
+        XFreeFontSet(ximDisplay, icFontSet);
+        icFontSet = NULL;
+    }
+
     return result;
 }
 
