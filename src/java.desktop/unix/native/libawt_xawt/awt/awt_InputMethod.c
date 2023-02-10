@@ -872,7 +872,61 @@ static void adjustStatusWindow(Window shell) {
 }
 #endif  /* __linux__ */
 
-static Bool newOverTheSpotIM_createXIC(JNIEnv *env, X11InputMethodData *pX11IMData, Window xWindow);
+
+typedef struct {
+    struct {
+        // XNVisiblePosition
+        Bool isXNVisiblePositionAvailable;
+        // XNR6PreeditCallback
+        Bool isXNR6PreeditCallbackAvailable;
+    } ximFeatures;
+
+    struct {
+        // TODO: all the flags
+    } xicFeatures;
+} XIMFeatures;
+
+static XIMFeatures obtainSupportedXIMFeaturesBy(XIM inputMethod);
+
+
+/**
+ * Obtains supported input styles by the specified input method
+ * @return NULL if failed ; otherwise the returned pointer has to be freed via XFree after use
+ */
+static XIMStyles* obtainSupportedInputStylesBy(XIM inputMethod);
+
+/**
+ * Chooses most preferable input styles for both of the active and the passive clients among the available ones
+ * @param[in] preferOverTheSpot - specifies whether the over-the-spot input style for the active client should be
+ *                                preferred over the on-the-spot input style
+ * @param[in] allSupportedInputStyles - non-null pointer specifying all the input styles supported by the IM
+ * @param[out] activeInputStyle - non-null pointer specifying the location where the chosen input style for the
+ *                                active client will be written
+ * @param[out] passiveInputStyle - non-null pointer specifying the location where the chosen input style for the
+ *                                 passive client will be written
+ * @return True if it has chosen input styles successfully for both of the active client and the passive client ;
+ *         False otherwise. In the latter case values of @p activeInputStyle and @p passiveInputStyle are unchanged
+ * @see obtainSupportedInputStylesBy(XIM inputMethod)
+ */
+static Bool chooseInputStylesForActiveAndPassiveClients(
+    Bool preferOverTheSpot,
+    const XIMStyles* allSupportedInputStyles,
+    XIMStyle* activeInputStyle,
+    XIMStyle* passiveInputStyle
+);
+
+/**
+ * @param[in] inputMethodConnection
+ * @param[in] inputStyle
+ * @param[in] window
+ * @return NULL if it has failed to create an input context suitable for the specified input style
+ *         ; otherwise the returned pointer has to be freed via XDestroyIC
+ */
+static XIC createInputContext(
+    XIM inputMethodConnection,
+    XIMStyle inputStyle,
+    Window window
+);
 
 /*
  * Creates two XICs, one for active clients and the other for passive
