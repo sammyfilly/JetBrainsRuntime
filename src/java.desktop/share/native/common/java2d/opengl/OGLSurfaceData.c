@@ -281,6 +281,75 @@ Java_sun_java2d_opengl_OGLSurfaceData_initTexture
     return JNI_TRUE;
 }
 
+unsigned char * s_raster = NULL;
+const int s_w = 5000;
+const int s_h = 5000;
+void initTestRaster() {
+    if (s_raster == NULL) {
+        const int len = s_w * s_h * 4;
+        s_raster = (unsigned char *) malloc(len);
+        for (int y = 0; y < s_h; ++y) {
+            const bool b = ((y/10) % 2) == 0;
+            for (int x = 0; x < s_w; ++x) {
+                unsigned char *pix = s_raster + (y * s_w + x) * 4;
+                pix[0] = 255; // alpha
+                pix[1] = (x*255)/2000; // red
+                pix[2] = (y*255)/2000; // green
+                pix[3] = b ? 0 : 255; // blue
+            }
+        }
+    }
+}
+
+JNIEXPORT jboolean JNICALL
+Java_sun_java2d_opengl_OGLSurfaceData_loadNativeRasterWithRects
+        (JNIEnv *env, jobject oglsd,
+         jlong pData, jlong pRaster, jint width, jint height, jlong pRects, jint rectsCount)
+{
+    OGLSDOps *oglsdo = (OGLSDOps *)jlong_to_ptr(pData);
+    if (oglsdo == NULL) {
+        fprintf(stderr, "OGLSurfaceData_loadNativeRasterWithRects: ops are null\n");
+        return JNI_FALSE;
+    }
+
+    //fprintf(stderr, "OGLSurfaceData_loadNativeRasterWithRects: ops=%p r=%p rCount=%d tt=%d texId=%d\n", (void*)pData, (void*)pRaster, rectsCount, oglsdo->textureTarget, oglsdo->textureID);
+    const GLvoid * raster = (const GLvoid *)pRaster;
+    const bool useTestRaster = raster == NULL;
+    const int stridePix = useTestRaster ? s_w : width;
+    if (useTestRaster) {
+        initTestRaster();
+        //fprintf(stderr, "OGLSurfaceData_loadNativeRaster: use test raster\n");
+        raster = s_raster;
+    }
+
+    glEnable(GL_TEXTURE_2D);
+    j2d_glPixelStorei(GL_UNPACK_ROW_LENGTH, stridePix);
+    j2d_glBindTexture(GL_TEXTURE_2D, oglsdo->textureID);
+    OGLPixelFormat pf = PixelFormats[1];
+    if (pRects == 0 || rectsCount < 1) {
+        //fprintf(stderr, "OGLSurfaceData_loadNativeRasterWithRects: do full copy\n");
+        j2d_glTexSubImage2D(oglsdo->textureTarget, 0,
+                            0, 0, width, height,
+                            pf.format, pf.type, raster);
+    } else {
+        int32_t *pr = (int32_t *) pRects;
+        for (int c = 0; c < rectsCount; ++c) {
+            int32_t x = *(pr++);
+            int32_t y = *(pr++);
+            int32_t w = *(pr++);
+            int32_t h = *(pr++);
+            const GLvoid *srcBytes = (char *)raster + y*stridePix*4 + x*4;
+            //fprintf(stderr, "\t[%d, %d, %d, %d] %d\n", x, y, w, h, (int)((char*)srcBytes - (char*)raster));
+            j2d_glTexSubImage2D(oglsdo->textureTarget, 0,
+                                x, y, w, h,
+                                pf.format, pf.type, srcBytes);
+        }
+    }
+    j2d_glPixelStorei(GL_UNPACK_ROW_LENGTH, 0);
+    return JNI_TRUE;
+}
+
+
 /**
  * Initializes a framebuffer object based on the given textureID and its
  * width/height.  This method will iterate through all possible depth formats

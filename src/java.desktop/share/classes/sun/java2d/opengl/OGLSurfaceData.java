@@ -172,6 +172,8 @@ public abstract class OGLSurfaceData extends SurfaceData
                                           int width, int height);
     protected native boolean initFlipBackbuffer(long pData);
 
+    private native boolean loadNativeRasterWithRects(long pData, long pRaster, int width, int height, long pRects, int rectsCount);
+
     private native int getTextureTarget(long pData);
     private native int getTextureID(long pData);
 
@@ -316,6 +318,17 @@ public abstract class OGLSurfaceData extends SurfaceData
                     initSurfaceNow(width, height);
                 }
             });
+        } finally {
+            rq.unlock();
+        }
+    }
+
+    public void loadNativeRasterWithRects(long pRaster, int width, int height, long pRects, int rectsCount) {
+        OGLRenderQueue rq = OGLRenderQueue.getInstance();
+        rq.lock();
+        try {
+            OGLContext.setScratchSurface(graphicsConfig);
+            rq.flushAndInvokeNow(() -> loadNativeRasterWithRects(getNativeOps(), pRaster, width, height, pRects, rectsCount));
         } finally {
             rq.unlock();
         }

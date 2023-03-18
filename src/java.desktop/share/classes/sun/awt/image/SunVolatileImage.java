@@ -36,10 +36,9 @@ import java.awt.Transparency;
 import java.awt.image.BufferedImage;
 import java.awt.image.ImageObserver;
 import java.awt.image.VolatileImage;
-import sun.java2d.SunGraphics2D;
-import sun.java2d.SurfaceManagerFactory;
-import sun.java2d.DestSurfaceProvider;
-import sun.java2d.Surface;
+
+import sun.java2d.*;
+import sun.java2d.opengl.CGLSurfaceData;
 import sun.java2d.pipe.Region;
 import static sun.java2d.pipe.hw.AccelSurface.*;
 
@@ -280,5 +279,21 @@ public class SunVolatileImage extends VolatileImage
     @Override
     public Surface getDestSurface() {
         return volSurfaceManager.getPrimarySurfaceData();
+    }
+
+    /**
+     * Test impl
+     * @param     pRaster 1
+     * @param     width 1
+     * @param     height 1
+     * @param     pRects 1
+     * @param     rectsCount 1
+     */
+    @Override
+    public void loadNativeRasterWithRects(long pRaster, int width, int height, long pRects, int rectsCount) {
+        SurfaceData sd = (SurfaceData)getDestSurface();
+        CGLSurfaceData glsurf = (CGLSurfaceData)sd;
+        glsurf.loadNativeRasterWithRects(pRaster, width, height, pRects, rectsCount);
+        glsurf.markDirty();
     }
 }

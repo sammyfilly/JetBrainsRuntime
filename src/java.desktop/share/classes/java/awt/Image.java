@@ -184,6 +184,16 @@ public abstract class Image {
     }
 
     /**
+     * Test impl
+     * @param     pRaster 1
+     * @param     width 1
+     * @param     height 1
+     * @param     pRects 1
+     * @param     rectsCount 1
+     */
+    public void loadNativeRasterWithRects(long pRaster, int width, int height, long pRects, int rectsCount) {}
+
+    /**
      * Use the default image-scaling algorithm.
      * @since 1.1
      */
