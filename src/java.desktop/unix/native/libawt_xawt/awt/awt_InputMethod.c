@@ -873,6 +873,12 @@ static void adjustStatusWindow(Window shell) {
 #endif  /* __linux__ */
 
 
+Bool jbNewXimClient_isDisabled();
+
+
+/**
+ * Optional features
+ */
 typedef struct {
     struct {
         // XNVisiblePosition
@@ -882,51 +888,327 @@ typedef struct {
     } ximFeatures;
 
     struct {
-        // TODO: all the flags
+        // XNStringConversion
+        Bool isXNStringConversionAvailable;
+        // XNStringConversionCallback
+        Bool isXNStringConversionCallbackAvailable;
+        // XNResetState
+        Bool isXNResetStateAvailable;
+        // XNHotKey
+        Bool isXNHotKeyAvailable;
+        // XNPreeditState
+        Bool isXNPreeditStateAvailable;
+        // XNPreeditStateNotifyCallback
+        Bool isXNPreeditStateNotifyCallbackAvailable;
     } xicFeatures;
-} XIMFeatures;
+} jbNewXimClient_XIMFeatures;
 
-static XIMFeatures obtainSupportedXIMFeaturesBy(XIM inputMethod);
+static jbNewXimClient_XIMFeatures jbNewXimClient_obtainSupportedXIMFeaturesBy(XIM inputMethod);
 
 
 /**
  * Obtains supported input styles by the specified input method
  * @return NULL if failed ; otherwise the returned pointer has to be freed via XFree after use
  */
-static XIMStyles* obtainSupportedInputStylesBy(XIM inputMethod);
+static XIMStyles* jbNewXimClient_obtainSupportedInputStylesBy(XIM inputMethod);
+
+
+// See https://docs.oracle.com/javase/8/docs/technotes/guides/imf/spec.html#InputStyles
+// DON'T FORGET TO ADJUST THE VALUE OF THE JBNEWXIMCLIENT_COUNTOF_SUPPORTED_INPUT_STYLES IF YOU ADD/REMOVE ELEMENTS HERE
+typedef enum jbNewXimClient_SupportedInputStyle {
+    JBNEWXIMCLIENT_SUPPORTED_INPUT_STYLE_ON_THE_SPOT_1    = XIMPreeditCallbacks | XIMStatusCallbacks,
+    JBNEWXIMCLIENT_SUPPORTED_INPUT_STYLE_ON_THE_SPOT_2    = XIMPreeditCallbacks | XIMStatusNothing,
+    JBNEWXIMCLIENT_SUPPORTED_INPUT_STYLE_BELOW_THE_SPOT_1 = XIMPreeditPosition | XIMStatusNothing,
+    JBNEWXIMCLIENT_SUPPORTED_INPUT_STYLE_ROOT_WINDOW_1    = XIMPreeditNothing | XIMStatusNothing,
+    JBNEWXIMCLIENT_SUPPORTED_INPUT_STYLE_NOFEEDBACK       = XIMPreeditNone | XIMStatusNone
+} jbNewXimClient_SupportedInputStyle;
+
+enum {
+    JBNEWXIMCLIENT_COUNTOF_SUPPORTED_INPUT_STYLES = 5
+};
+
+typedef struct jbNewXimClient_PrioritizedStyles {
+    struct {
+        jbNewXimClient_SupportedInputStyle forActiveClient;
+        jbNewXimClient_SupportedInputStyle forPassiveClient;
+    } ofPriority[JBNEWXIMCLIENT_COUNTOF_SUPPORTED_INPUT_STYLES * JBNEWXIMCLIENT_COUNTOF_SUPPORTED_INPUT_STYLES];
+
+    // Only 0th..pairsCount-1 elements of ofClient are valid
+    unsigned int pairsCount;
+} jbNewXimClient_PrioritizedStyles;
+
+
+static jbNewXimClient_PrioritizedStyles jbNewXimClient_chooseAndPrioritizeInputStyles(
+    Bool preferBelowTheSpot,
+    const XIMStyles *allXimSupportedInputStyles,
+    const jbNewXimClient_XIMFeatures *allXimSupportedFeatures
+);
+
+
+#if 0
+/**
+ * A helper struct used for customization the behavior of jbNewXimClient_createInputContext.
+ *
+ * The only correct way to initialize an object / modify its fields is
+ *   jbNewXimClient_determineParametersForActiveAndPassiveClients.
+ * The only correct way to deinitialize an object is jbNewXimClient_disposeParametersForActiveAndPassiveClients.
+ */
+typedef struct {
+    // required (cannot be NULL)
+    XIM xInputMethodConnection;
+
+    // (XNInputStyle) required
+    XIMStyle inputStyle;
+
+    // (XNClientWindow) required
+    Window clientWindow;
+
+    // (XNResetState) optional
+    //   (not used if resetState.isSet != True or if the feature is not supported by xInputMethodConnection)
+    struct {
+        Bool isSet;
+        XIMResetState value;
+    } resetState;
+
+    // (XNPreeditAttributes) optional (not used if none of its fields are used)
+    struct {
+        // (XNFontSet) optional (not used if NULL).
+        XFontSet customFontSet;
+
+        // (XNPreeditStateNotifyCallback) optional
+        //   (not used if preeditStateNotifyCallback.callback == NULL or
+        //    if the feature is not supported by xInputMethodConnection)
+        //XIMCallback preeditStateNotifyCallback;
+
+        // Nothing else is supported by the moment
+    } preeditAttributes;
+
+    // (XNStatusAttributes)
+    //   (not used if none of its fields are used)
+    struct {
+        // (XNFontSet) optional (not used if NULL)
+        XFontSet customFontSet;
+    } statusAttributes;
+} jbNewXimClient_InputContextParameters;
+
 
 /**
  * Chooses most preferable input styles for both of the active and the passive clients among the available ones
+ *   and then initializes jbNewXimClient_InputContextParameters structures for the clients depending on chosen
+ *   input styles
+ *
  * @param[in] preferOverTheSpot - specifies whether the over-the-spot input style for the active client should be
  *                                preferred over the on-the-spot input style
  * @param[in] allSupportedInputStyles - non-null pointer specifying all the input styles supported by the IM
- * @param[out] activeInputStyle - non-null pointer specifying the location where the chosen input style for the
- *                                active client will be written
- * @param[out] passiveInputStyle - non-null pointer specifying the location where the chosen input style for the
- *                                 passive client will be written
+ * @param[out] activeClientParameters - non-null pointer specifying the location where the determined parameters for the
+ *                                      active client will be written
+ * @param[out] passiveClientParameters - non-null pointer specifying the location where the determined parameters for the
+ *                                       passive client will be written
  * @return True if it has chosen input styles successfully for both of the active client and the passive client ;
  *         False otherwise. In the latter case values of @p activeInputStyle and @p passiveInputStyle are unchanged
- * @see obtainSupportedInputStylesBy(XIM inputMethod)
+ * @see jbNewXimClient_obtainSupportedInputStylesBy(XIM inputMethod)
  */
-static Bool chooseInputStylesForActiveAndPassiveClients(
+static Bool jbNewXimClient_determineParametersForActiveAndPassiveClients(
     Bool preferOverTheSpot,
+    const jbNewXimClient_XIMFeatures* allSupportedXimFeatures,
     const XIMStyles* allSupportedInputStyles,
-    XIMStyle* activeInputStyle,
-    XIMStyle* passiveInputStyle
+    jbNewXimClient_InputContextParameters* activeClientParameters,
+    jbNewXimClient_InputContextParameters* passiveClientParameters
 );
 
+static void jbNewXimClient_disposeParametersForActiveAndPassiveClients(
+    jbNewXimClient_InputContextParameters* activeClientParameters,
+    jbNewXimClient_InputContextParameters* passiveClientParameters
+);
+#endif // 0
+
+
+typedef struct {
+    XIC xic;
+
+    /**
+     * NULL if the XNFontSet parameter of xic hasn't been specified manually.
+     * Otherwise it has to be freed via XFreeFontSet when xic is destroyed AND the font set is no longer needed.
+     */
+    XFontSet preeditCustomFontSet;
+
+    // Can be equal to preeditCustomFontSet, don't forget to handle it before calling XFreeFontSet
+    XFontSet statusCustomFontSet;
+} jbNewXimClient_ExtendedInputContext;
+
 /**
- * @param[in] inputMethodConnection
- * @param[in] inputStyle
+ * @param[in] style
+ * @param[in] jEnv
+ * @param[in] xInputMethodConnection
  * @param[in] window
  * @return NULL if it has failed to create an input context suitable for the specified input style
  *         ; otherwise the returned pointer has to be freed via XDestroyIC
  */
-static XIC createInputContext(
-    XIM inputMethodConnection,
-    XIMStyle inputStyle,
+static jbNewXimClient_ExtendedInputContext jbNewXimClient_createInputContextOfStyle(
+    jbNewXimClient_SupportedInputStyle style,
+    JNIEnv *jEnv,
+    XIM xInputMethodConnection,
     Window window
 );
+
+static void jbNewXimClient_destroyInputContext(jbNewXimClient_ExtendedInputContext* context);
+
+
+// TODO: reconsider return value type
+/**
+ * @see #createXIC
+ */
+static Bool jbNewXimClient_initializeXICs(
+    JNIEnv* const env,
+    const XIM xInputMethodConnection,
+    X11InputMethodData* const pX11ImData,
+    const Window window,
+    const Bool preferBelowTheSpot
+) {
+    if (env == NULL) {
+        jio_fprintf(stderr, "%s: env == NULL.\n", __func__);
+        return False;
+    }
+    if (xInputMethodConnection == NULL) {
+        jio_fprintf(stderr, "%s: xInputMethodConnection == NULL.\n", __func__);
+        return False;
+    }
+    if (pX11ImData == NULL) {
+        jio_fprintf(stderr, "%s: pX11IMData == NULL.\n", __func__);
+        return False;
+    }
+
+    Bool result = False;
+
+    jbNewXimClient_XIMFeatures supportedXimFeatures = { 0 };
+    XIMStyles* supportedXimInputStyles = NULL;
+
+    jbNewXimClient_PrioritizedStyles inputStylesToTry = { 0 };
+
+    jbNewXimClient_ExtendedInputContext activeClientIc = { 0 };
+    jbNewXimClient_ExtendedInputContext passiveClientIc = { 0 };
+
+    unsigned int i = 0;
+
+    // Required IC values for XCreateIC by the X protocol:
+    // * XNInputStyle
+    // * (When XNInputStyle includes XIMPreeditPosition) XNFontSet
+    // * When XNInputStyle includes XIMPreeditCallbacks:
+    //   * XNPreeditStartCallback
+    //   * XNPreeditDoneCallback
+    //   * XNPreeditDrawCallback
+    //   * XNPreeditCaretCallback
+    // * When XNInputStyle includes XIMStatusCallbacks:
+    //   * XNStatusStartCallback
+    //   * XNStatusDoneCallback
+    //   * XNStatusDrawCallback
+
+    // 1. Ask for supported IM features (see the docs about XNQueryIMValuesList and XNQueryICValuesList)
+    // 2. Ask for supported IM styles (XIMPreedit... | XIMStatus...)
+    // 3. Choose the IM styles for active and passive clients in the following descending order:
+    //     1. (only if prefer_below_the_spot is true) XIMPreeditPosition
+    //     2. XIMPreedit
+
+    // IC values for XCreateIC:
+    // * XNInputStyle
+    // * XNClientWindow
+    // * (not needed here) ~~XNDestroyCallback~~
+    // * XNResetState (may not be supported, ask IM via XGetIMValues(XNQueryICValuesList) before)
+    // * TODO: XNStringConversion (may not be supported)
+    // * TODO: XNStringConversionCallback (may not be supported)
+    // * XNPreeditAttributes:
+    //   * XNFontSet
+    //   * XNSpotLocation
+    //   * XNPreeditState (may not be supported)
+    //   * XNPreeditStateNotifyCallback (may not be supported)
+    //   * TODO: XNArea (not required, has default value)
+    //
+
+    // IC values for XSetICValues:
+    // * XNFocusWindow?
+    // *
+
+    supportedXimFeatures = jbNewXimClient_obtainSupportedXIMFeaturesBy(xInputMethodConnection);
+
+    supportedXimInputStyles = jbNewXimClient_obtainSupportedInputStylesBy(xInputMethodConnection);
+    if (supportedXimInputStyles == NULL) {
+        jio_fprintf(stderr, "%s: failed to obtain input styles supported by xInputMethodConnection=%p.\n",
+                    __func__, xInputMethodConnection);
+        goto finally;
+    }
+
+    inputStylesToTry = jbNewXimClient_chooseAndPrioritizeInputStyles(
+        preferBelowTheSpot,
+        supportedXimInputStyles,
+        &supportedXimFeatures
+    );
+
+    XFree(supportedXimInputStyles);
+    supportedXimInputStyles = NULL;
+
+    if (inputStylesToTry.pairsCount < 1) {
+        // No acceptable styles are found
+        goto finally;
+    }
+
+    activeClientIc.xic = passiveClientIc.xic = NULL;
+    // Try to create a pair of contexts for an active and a passive client respectively
+    //   in descending order of preferred styles pairs
+    for (i = 0; i < inputStylesToTry.pairsCount; ++i) {
+        activeClientIc = jbNewXimClient_createInputContextOfStyle(
+                inputStylesToTry.ofPriority[i].forActiveClient,
+                env,
+                xInputMethodConnection,
+                window
+        );
+        if (activeClientIc.xic == NULL) {
+            // Failed to create a context for an active client, so let's try the next pair of styles
+            continue;
+        }
+
+        passiveClientIc = jbNewXimClient_createInputContextOfStyle(
+                inputStylesToTry.ofPriority[i].forPassiveClient,
+                env,
+                xInputMethodConnection,
+                window
+        );
+        if (passiveClientIc.xic == NULL) {
+            // Failed to create a context for a passive client, so let's dispose the context of an active client and
+            //   then try the next pair of styles
+            jbNewXimClient_destroyInputContext(&activeClientIc);
+        } else {
+            // Both contexts have been created successfully
+            break;
+        }
+    }
+
+    if ((activeClientIc.xic == NULL) || (passiveClientIc.xic == NULL)) {
+        jio_fprintf(stderr, "%s: failed to create an input context for an active client and/or a passive client. %u pairs of input styles have been tried\n",
+                    __func__, inputStylesToTry.pairsCount);
+
+        // If one of the contexts is NULL then both of them are expected to be NULL
+        assert( (activeClientIc.xic == NULL) );
+        assert( (passiveClientIc.xic == NULL) );
+
+        goto finally;
+    }
+
+    result = True;
+
+finally:
+    if (supportedXimInputStyles != NULL) {
+        XFree(supportedXimInputStyles);
+        supportedXimInputStyles = NULL;
+    }
+
+    if (result != True) {
+        jbNewXimClient_destroyInputContext(&activeClientIc);
+        jbNewXimClient_destroyInputContext(&passiveClientIc);
+    }
+
+    return result;
+}
+
 
 /*
  * Creates two XICs, one for active clients and the other for passive
@@ -943,8 +1225,12 @@ static XIC createInputContext(
  * fallback to None styles.
  */
 static Bool
-createXIC(JNIEnv * env, X11InputMethodData *pX11IMData, Window w)
+createXIC(JNIEnv * env, X11InputMethodData *pX11IMData, Window w, Bool preferBelowTheSpot)
 {
+    if (!jbNewXimClient_isDisabled() && jbNewXimClient_initializeXICs(env, X11im, pX11IMData, w, preferBelowTheSpot)) {
+        return True;
+    }
+
     XVaNestedList preedit = NULL;
     XVaNestedList status = NULL;
     XIMStyle on_the_spot_styles = XIMPreeditCallbacks,
