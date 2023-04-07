@@ -60,6 +60,13 @@ public class XInputMethod extends X11InputMethod {
         }
     }
 
+
+    private boolean useBelowTheSpot() {
+        // TODO: implementation
+        return false;
+    }
+
+
     protected boolean openXIM() {
         return openXIMNative(XToolkit.getDisplay());
     }
@@ -69,14 +76,14 @@ public class XInputMethod extends X11InputMethod {
         if (peer == null) {
             return false;
         }
-        return createXICNative(peer.getContentWindow());
+        return createXICNative(peer.getContentWindow(), useBelowTheSpot());
     }
 
     protected boolean recreateXIC(int ctxid) {
         final XComponentPeer peer = (XComponentPeer)getPeer(clientComponentWindow);
         if (peer == null || pData == 0)
             return true;
-        return recreateXICNative(peer.getContentWindow(), pData, ctxid);
+        return recreateXICNative(peer.getContentWindow(), pData, ctxid, useBelowTheSpot());
     }
     protected int releaseXIC() {
         if (pData == 0)
@@ -249,8 +256,8 @@ public class XInputMethod extends X11InputMethod {
      * Native methods
      */
     private native boolean openXIMNative(long display);
-    private native boolean createXICNative(long window);
-    private native boolean recreateXICNative(long window, long px11data, int ctxid);
+    private native boolean createXICNative(long window, boolean preferBelowTheSpot);
+    private native boolean recreateXICNative(long window, long px11data, int ctxid, boolean preferBelowTheSpot);
     private native int releaseXICNative(long px11data);
     private native void setXICFocusNative(long window,
                                     boolean value, boolean active);
