@@ -9,6 +9,7 @@ import java.io.InputStreamReader;
  * @summary VerifyDependencies checks readability verifies that a Linux shared
  *          library has no dependency on symbols from glibc version higher than 2.17
  * @run main VerifyDependencies
+ * @requires (os.family == "linux")
  */
 
 public class VerifyDependencies {
