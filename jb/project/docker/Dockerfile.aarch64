@@ -24,7 +24,6 @@ RUN yum -y update; \
         freetype-devel-2.8-14.el7_9.1.aarch64 \
         giflib-devel-4.1.6-9.el7.aarch64 \
         git-1.8.3.1-24.el7_9.aarch64 \
-        libstdc++-devel-4.8.5-44.el7.aarch64 \
         libtool-2.4.2-22.el7_3.aarch64 \
         libXi-devel-1.7.9-1.el7.aarch64 \
         libXrandr-devel-1.5.1-2.el7.aarch64 \
@@ -37,8 +36,7 @@ RUN yum -y update; \
         unzip-6.0-24.el7_9.aarch64 \
         wayland-devel-1.15.0-1.el7 \
         zip-3.0-11.el7.aarch64; \
-   yum -y clean all; \
-   rm -rf /var/lib/apt/lists/* /tmp/* /var/tmp/*
+   yum -y clean all
 
 ENV PATH="/opt/rh/devtoolset-10/root/usr/bin:${PATH}"
 ENV LD_LIBRARY_PATH="/opt/rh/devtoolset-10/root/usr/lib64:/opt/rh/devtoolset-10/root/usr/lib:/opt/rh/devtoolset-10/root/usr/lib64/dyninst:/opt/rh/devtoolset-10/root/usr/lib/dyninst:/opt/rh/devtoolset-10/root/usr/lib64:/opt/rh/devtoolset-10/root/usr/lib"
