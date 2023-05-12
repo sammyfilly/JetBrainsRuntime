@@ -14,7 +14,6 @@ RUN yum -y install centos-release-scl; \
         giflib-devel-4.1.6-9.el7 \
         git-1.8.3.1-24.el7_9 \
         libtool-2.4.2-22.el7_3 \
-        libwayland-cursor \
         libXi-devel-1.7.9-1.el7 \
         libXrandr-devel-1.5.1-2.el7 \
         libXrender-devel-0.9.10-1.el7 \
@@ -23,7 +22,7 @@ RUN yum -y install centos-release-scl; \
         make-3.82-24.el7 \
         tar-1.26-35.el7 \
         unzip-6.0-24.el7_9 \
-        wayland-devel \
+        wayland-devel-1.15.0-1.el7 \
         wget-1.14-18.el7_6.1 \
         which-2.20-7.el7 \
         zip-3.0-11.el7
