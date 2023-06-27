@@ -32,6 +32,7 @@ import java.awt.GraphicsEnvironment;
 import java.awt.Rectangle;
 import java.awt.image.ColorModel;
 import sun.awt.wl.WLComponentPeer;
+import sun.awt.wl.WLGraphicsConfig;
 import sun.java2d.SurfaceData;
 import sun.java2d.loops.SurfaceType;
 import sun.java2d.pipe.BufferedContext;
@@ -51,7 +52,7 @@ public abstract class WLVKSurfaceData extends VKSurfaceData implements WLSurface
     @Override
     public native void revalidate(int width, int height, int scale);
 
-    protected native void initOps(int width, int height, int backgroundRGB);
+    protected native void initOps(int width, int height, int scale, int backgroundRGB);
     protected WLVKSurfaceData(WLComponentPeer peer, WLVKGraphicsConfig gc,
                               SurfaceType sType, ColorModel cm, int type)
     {
@@ -61,7 +62,8 @@ public abstract class WLVKSurfaceData extends VKSurfaceData implements WLSurface
         final int backgroundRGB = peer.getBackground() != null
                 ? peer.getBackground().getRGB()
                 : 0;
-        initOps(peer.getBufferWidth(), peer.getBufferHeight(), backgroundRGB);
+        int scale = ((WLGraphicsConfig)peer.getGraphicsConfiguration()).getScale();
+        initOps(peer.getBufferWidth(), peer.getBufferHeight(), scale, backgroundRGB);
     }
 
     @Override

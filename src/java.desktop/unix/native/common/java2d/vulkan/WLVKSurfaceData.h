@@ -30,10 +30,23 @@
 #include <cstdlib>
 #include <vulkan/vulkan.h>
 #include <SurfaceData.h>
+#include <VKBase.h>
 
 #ifdef HEADLESS
 #define WLVKSDOps void
 #else /* HEADLESS */
+
+class WLVKSurfaceData : public VKSurfaceData {
+    wl_surface*            _wl_surface;
+    vk::raii::SurfaceKHR   _surface_khr;
+    vk::raii::SwapchainKHR _swapchain_khr;
+public:
+    WLVKSurfaceData(uint32_t w, uint32_t h, uint32_t s, uint32_t bgc);
+    void validate(wl_surface* wls);
+    void revalidate(uint32_t w, uint32_t h, uint32_t s);
+    void set_bg_color(uint32_t bgc);
+    void update();
+};
 
 /**
  * The WLVKSDOps structure contains the WLVK-specific information for a given
@@ -49,8 +62,7 @@
  */
 typedef struct _WLVKSDOps {
     SurfaceDataOps      sdOps;
-    wl_surface*         wlSurface;
-    VkSurfaceKHR*       surface;
+    WLVKSurfaceData*    wlvkSD;
     pthread_mutex_t     lock;
 } WLVKSDOps;
 

@@ -29,6 +29,7 @@
 #include <Trace.h>
 #include <SurfaceData.h>
 #include "VKSurfaceData.h"
+#include "VKBase.h"
 #include <jni_util.h>
 #include <cstdlib>
 #include <string>
@@ -83,12 +84,16 @@ WLVKSD_Dispose(JNIEnv *env, SurfaceDataOps *ops)
     /* ops is assumed non-null as it is checked in SurfaceData_DisposeOps */
     VKSDOps *vsdo = (VKSDOps*)ops;
     J2dTrace1(J2D_TRACE_INFO, "WLSD_Dispose %p\n", ops);
-    pthread_mutex_destroy(&((WLVKSDOps*)vsdo->privOps)->lock);
+    WLVKSDOps *wlvksdOps = (WLVKSDOps*)vsdo->privOps;
+    pthread_mutex_destroy(&wlvksdOps->lock);
+    if (wlvksdOps->wlvkSD !=nullptr) {
+        delete wlvksdOps->wlvkSD;
+        wlvksdOps->wlvkSD = nullptr;
+    }
 #endif
 }
 extern "C" JNIEXPORT void JNICALL Java_sun_java2d_vulkan_WLVKSurfaceData_initOps
-        (JNIEnv *env, jclass vksd, jint width, jint height, jint backgroundRGB) {
-
+        (JNIEnv *env, jclass vksd, jint width, jint height, jint scale, jint backgroundRGB) {
 #ifndef HEADLESS
     VKSDOps *vsdo = (VKSDOps*)SurfaceData_InitOps(env, vksd, sizeof(VKSDOps));
     J2dRlsTraceLn1(J2D_TRACE_INFO, "WLVKSurfaceData_initOps: %p", vsdo);
@@ -124,7 +129,7 @@ extern "C" JNIEXPORT void JNICALL Java_sun_java2d_vulkan_WLVKSurfaceData_initOps
     // So WLSD_Lock() should be able to lock the same surface twice in a row.
     pthread_mutexattr_settype(&attr, PTHREAD_MUTEX_RECURSIVE_NP);
     pthread_mutex_init(&wlvksdOps->lock, &attr);
-
+    wlvksdOps->wlvkSD = new WLVKSurfaceData(width, height, scale, backgroundRGB);
 #endif /* !HEADLESS */
 }
 
@@ -138,10 +143,17 @@ Java_sun_java2d_vulkan_WLVKSurfaceData_assignSurface(JNIEnv *env, jobject wsd,
         return;
     }
 
-    ((WLVKSDOps*)vsdo->privOps)->wlSurface = (struct wl_surface*)jlong_to_ptr(wlSurfacePtr);
-    J2dRlsTraceLn2(J2D_TRACE_INFO, "WLVKSurfaceData_assignSurface wl_surface(%p) wl_display(%p)",
-                   ((WLVKSDOps*)vsdo->privOps)->wlSurface, wl_display);
+    WLVKSDOps *wlvksdOps = (WLVKSDOps*)vsdo->privOps;
 
+    wl_surface* wlSurface = (struct wl_surface*)jlong_to_ptr(wlSurfacePtr);
+    J2dTraceLn2(J2D_TRACE_INFO, "WLVKSurfaceData_assignSurface wl_surface(%p) wl_display(%p)",
+                   wlSurface, wl_display);
+
+    try {
+        wlvksdOps->wlvkSD->validate(wlSurface);
+    } catch (std::exception& e) {
+        J2dRlsTrace1(J2D_TRACE_ERROR, "WLVKSurfaceData_assignSurface: %s\n", e.what());
+    }
 #endif /* !HEADLESS */
 }
 
@@ -158,6 +170,170 @@ Java_sun_java2d_vulkan_WLVKSurfaceData_revalidate(JNIEnv *env, jobject wsd,
                                              jint width, jint height, jint scale)
 {
 #ifndef HEADLESS
+    VKSDOps *vsdo = (VKSDOps*)SurfaceData_GetOps(env, wsd);
+    if (vsdo == NULL) {
+        return;
+    }
     J2dTrace3(J2D_TRACE_INFO, "WLVKSurfaceData_revalidate to size %d x %d and scale %d\n", width, height, scale);
+
+    WLVKSDOps *wlvksdOps = (WLVKSDOps*)vsdo->privOps;
+    try {
+        wlvksdOps->wlvkSD->revalidate(width, height, scale);
+        wlvksdOps->wlvkSD->update();
+    } catch (std::exception& e) {
+        J2dRlsTrace1(J2D_TRACE_ERROR, "WLVKSurfaceData_revalidate: %s\n", e.what());
+    }
+
 #endif /* !HEADLESS */
+}
+
+extern "C" JNIEXPORT void JNICALL
+JNI_OnUnload(JavaVM *vm, void *reserved) {
+#ifndef HEADLESS
+    VKGraphicsEnvironment::dispose();
+#endif /* !HEADLESS */
+}
+
+
+WLVKSurfaceData::WLVKSurfaceData(uint32_t w, uint32_t h, uint32_t s, uint32_t bgc)
+        :VKSurfaceData(w, h, s, bgc), _wl_surface(nullptr), _surface_khr(nullptr), _swapchain_khr(nullptr)
+{
+    J2dTrace3(J2D_TRACE_INFO, "Create WLVKSurfaceData with size %d x %d and scale %d\n", w, h, s);
+}
+
+void WLVKSurfaceData::validate(wl_surface* wls)
+{
+    if (wls ==_wl_surface) {
+        return;
+    }
+
+    _wl_surface = wls;
+
+    vk::WaylandSurfaceCreateInfoKHR createInfoKhr = {
+            {}, wl_display, _wl_surface
+    };
+
+    _surface_khr =
+            VKGraphicsEnvironment::graphics_environment()->vk_instance().createWaylandSurfaceKHR(
+                    createInfoKhr);
+    revalidate(width(), height(), scale());
+    update();
+}
+
+void WLVKSurfaceData::revalidate(uint32_t w, uint32_t h, uint32_t s)
+{
+    if (s == scale() && w == width() && h == height() ) {
+        if (!*_surface_khr || *_swapchain_khr) {
+            J2dTraceLn2(J2D_TRACE_INFO,
+                        "WLVKSurfaceData_revalidate is skipped: surface_khr(%p) swapchain_khr(%p)",
+                        *_surface_khr, *_swapchain_khr);
+            return;
+        }
+    } else {
+        VKSurfaceData::revalidate(w, h, s);
+        if (!*_surface_khr) {
+            J2dTraceLn1(J2D_TRACE_INFO,"WLVKSurfaceData_revalidate is skipped: surface_khr(%p)",
+                        *_surface_khr);
+            return;
+        }
+    }
+
+    vk::SwapchainCreateInfoKHR swapchainCreateInfoKhr{
+            {},
+            *_surface_khr,
+            1, vk::Format::eB8G8R8A8Unorm,
+            vk::ColorSpaceKHR::eVkColorspaceSrgbNonlinear,
+            {width()/scale(), height()/scale()},
+            1,
+            vk::ImageUsageFlagBits::eColorAttachment | vk::ImageUsageFlagBits::eTransferDst,
+            vk::SharingMode::eExclusive,
+            0,
+            nullptr,
+            vk::SurfaceTransformFlagBitsKHR::eIdentity,
+            vk::CompositeAlphaFlagBitsKHR::eOpaque,
+            vk::PresentModeKHR::eImmediate,
+            false, *_swapchain_khr
+    };
+
+    auto& device = VKGraphicsEnvironment::graphics_environment()->default_device();
+    _swapchain_khr = device.createSwapchainKHR(swapchainCreateInfoKhr);
+}
+
+void WLVKSurfaceData::set_bg_color(uint32_t bgc)
+{
+    if (bg_color() == bgc) {
+        return;
+    }
+    VKSurfaceData::set_bg_color(bgc);
+    update();
+}
+
+void WLVKSurfaceData::update()
+{
+    if (!*_swapchain_khr) {
+        return;
+    }
+    auto& device = VKGraphicsEnvironment::graphics_environment()->default_device();
+    vk::SemaphoreCreateInfo semInfo = {};
+    vk::raii::Semaphore presentCompleteSem = device.createSemaphore(semInfo);
+
+    std::pair<vk::Result, uint32_t> img = _swapchain_khr.acquireNextImage(0, *presentCompleteSem, nullptr);
+    if (img.first!=vk::Result::eSuccess) {
+        J2dRlsTraceLn(J2D_TRACE_INFO, "failed to get image");
+    }
+    else {
+        J2dRlsTraceLn(J2D_TRACE_INFO, "obtained image");
+    }
+    auto images = _swapchain_khr.getImages();
+
+    vk::CommandPoolCreateInfo poolInfo{
+            {vk::CommandPoolCreateFlagBits::eResetCommandBuffer},
+            static_cast<uint32_t>(device.queue_family())
+    };
+
+    auto pool = device.createCommandPool(poolInfo);
+
+    vk::CommandBufferAllocateInfo buffInfo{
+            *pool, vk::CommandBufferLevel::ePrimary, (uint32_t) 1, nullptr
+    };
+
+    auto buffers = device.allocateCommandBuffers(buffInfo);
+
+    vk::CommandBufferBeginInfo begInfo{
+    };
+
+    uint32_t alpha = (bg_color() >> 24) & 0xFF;
+    uint32_t red = (bg_color() >> 16) & 0xFF;
+    uint32_t green = (bg_color() >> 8) & 0xFF;
+    uint32_t blue = bg_color() & 0xFF;
+    vk::ClearColorValue color = {
+            static_cast<float>(red)/255.0f,
+            static_cast<float>(green)/255.0f,
+            static_cast<float>(blue)/255.0f,
+            static_cast<float>(alpha)/255.0f
+    };
+
+    std::vector<vk::ImageSubresourceRange> range = {{
+                                                            vk::ImageAspectFlagBits::eColor,
+                                                            0, 1, 0, 1}};
+    buffers[0].begin(begInfo);
+    buffers[0].clearColorImage(images[img.second], vk::ImageLayout::eSharedPresentKHR, color, range);
+    buffers[0].end();
+
+    vk::SubmitInfo submitInfo{
+            nullptr, nullptr, *buffers[0], nullptr
+    };
+
+    auto queue = device.getQueue(device.queue_family(), 0);
+
+    queue.submit(submitInfo, nullptr);
+    queue.waitIdle();
+    vk::PresentInfoKHR presentInfo;
+    presentInfo.swapchainCount = 1;
+    presentInfo.pSwapchains = &*_swapchain_khr;
+    presentInfo.pImageIndices = &(img.second);
+
+    queue.presentKHR(presentInfo);
+    queue.waitIdle();
+    device.waitIdle();
 }
