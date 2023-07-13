@@ -2157,16 +2157,18 @@ void VMError::record_oome_stack(const char *message) {
     return;
   }
 
-  MutexLocker ml(OOMEStacks_lock);
-  ResourceMark rm;
+  {
+    MutexLocker ml(OOMEStacks_lock);
+    ResourceMark rm;
 
-  stringStream st(_oome_stacktrace[_oome_free_index], OOME_STACKTRACE_BUFSIZE);
-  st.print_cr("OutOfMemoryError(\"%s\") on the thread \"%s\"", message, thread->name());
-  JavaThread::cast(thread)->print_stack_on(&st);
+    stringStream st(_oome_stacktrace[_oome_free_index], OOME_STACKTRACE_BUFSIZE);
+    st.print_cr("OutOfMemoryError(\"%s\") on the thread \"%s\"", message, thread->name());
+    JavaThread::cast(thread)->print_stack_on(&st);
 
-  st.cr();
+    st.cr();
 
-  _oome_free_index = (_oome_free_index + 1) % OOME_STACKTRACE_COUNT;
+    _oome_free_index = (_oome_free_index + 1) % OOME_STACKTRACE_COUNT;
+  }
 }
 
 void VMError::print_oome_stacks(outputStream *st) {

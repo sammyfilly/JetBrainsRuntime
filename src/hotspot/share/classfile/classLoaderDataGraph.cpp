@@ -267,7 +267,7 @@ inline void assert_is_safepoint_or_gc() {
   assert(SafepointSynchronize::is_at_safepoint() ||
          Thread::current()->is_ConcurrentGC_thread() ||
          Thread::current()->is_Worker_thread() ||
-         VMError::is_error_reported(),
+         VMError::is_error_reported(), // don't crash here again if we have already crashed
          "Must be called by safepoint or GC");
 }
 
