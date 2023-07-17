@@ -188,14 +188,14 @@ JavaAccessBridge::~JavaAccessBridge() {
 
     AccessBridgeATInstance *current = ATs;
     while (current != nullptr) {
-        PrintDebugString("[INFO]:  telling %p we're going away", current->winAccessBridgeWindow);
+        PrintDebugString("[INFO]:   telling %p we're going away", current->winAccessBridgeWindow);
 
         SendMessage(current->winAccessBridgeWindow, AB_DLL_GOING_AWAY, (WPARAM) dialogWindow, (LPARAM) 0);
 
         current = current->nextATInstance;
     }
 
-    PrintDebugString("[INFO]:  finished telling ATs about our demise");
+    PrintDebugString("[INFO]:   finished telling ATs about our demise");
 
     if(JavaBridgeThreadId) {
         PostThreadMessage(JavaBridgeThreadId, WM_USER + 1, 0, 0);
@@ -223,7 +223,7 @@ JavaAccessBridge::javaRun(JNIEnv *env, jobject obj) {
     if (javaVM->AttachCurrentThread((void **) &windowsThreadJNIEnv, nullptr) != 0) {
         return; // huh!?!?!
     }
-    PrintDebugString("[INFO]:  -> windowsThreadJNIEnv = %p", windowsThreadJNIEnv);
+    PrintDebugString("[INFO]:   -> windowsThreadJNIEnv = %p", windowsThreadJNIEnv);
 
     javaThreadABObject = env->NewGlobalRef(obj);
     windowsThreadABObject = windowsThreadJNIEnv->NewGlobalRef(obj);
@@ -337,10 +337,10 @@ JavaAccessBridge::sendPackage(char *buffer, int bufsize, HWND destHwnd) {
 void
 JavaAccessBridge::sendJavaEventPackage(char *buffer, int bufsize, long type) {
 
-    PrintDebugString("[INFO]: JavaAccessBridge::sendJavaEventPackage(), type = %X", type);
+    PrintDebugString("[INFO]: JavaAccessBridge::sendJavaEventPackage(), type = %ld", type);
 
     if (ATs == nullptr) {
-        PrintDebugString("[ERROR]: ATs == 0! (shouldn't happen here!)");
+        PrintDebugString("[ERROR]:   ATs == 0! (shouldn't happen here!)");
     }
 
     AccessBridgeATInstance *ati = ATs;
@@ -357,10 +357,10 @@ JavaAccessBridge::sendJavaEventPackage(char *buffer, int bufsize, long type) {
 void
 JavaAccessBridge::sendAccessibilityEventPackage(char *buffer, int bufsize, long type) {
 
-    PrintDebugString("[INFO]: JavaAccessBridge::sendAccessibilityEventPackage(), type = %X", type);
+    PrintDebugString("[INFO]: JavaAccessBridge::sendAccessibilityEventPackage(), type = %ld", type);
 
     if (ATs == nullptr) {
-        PrintDebugString("[ERROR] ATs == 0! (shouldn't happen here!)");
+        PrintDebugString("[ERROR]: ATs == 0! (shouldn't happen here!)");
     }
 
     AccessBridgeATInstance *ati = ATs;
@@ -383,11 +383,11 @@ JavaAccessBridge::sendAccessibilityEventPackage(char *buffer, int bufsize, long 
  */
 BOOL
 JavaAccessBridge::receiveMemoryPackage(HWND srcWindow, long bufsize) {
-    PrintDebugString("[INFO]: JavaAccessBridge::receiveMemoryPackage(%p, %d)", srcWindow, bufsize);
+    PrintDebugString("[INFO]: JavaAccessBridge::receiveMemoryPackage(%p, %ld)", srcWindow, bufsize);
 
     // look-up the appropriate IPCview based on the srcHWND of the Windows AccessBridge DLL
     if (ATs == nullptr) {
-        PrintDebugString("[ERROR]: - ATs == 0 (shouldn't happen in receiveMemoryPackage()!");
+        PrintDebugString("[ERROR]:   ATs == 0 (shouldn't happen in receiveMemoryPackage()!");
         return FALSE;
     }
 
@@ -411,7 +411,7 @@ JavaAccessBridge::receiveMemoryPackage(HWND srcWindow, long bufsize) {
 
     } else {
         //DEBUG_CODE(AppendToCallInfo("ERROR receiving memory package: couldn't find srcWindow"));
-        PrintDebugString("[ERROR]: receiving memory package: couldn't find srcWindow");
+        PrintDebugString("[ERROR]:   receiving memory package: couldn't find srcWindow");
         return FALSE;
     }
 }
@@ -423,11 +423,11 @@ JavaAccessBridge::receiveMemoryPackage(HWND srcWindow, long bufsize) {
  */
 LRESULT
 JavaAccessBridge::processPackage(char *buffer, int bufsize) {
-    PrintDebugString("[INFO]: Processing package sent from Windows, bufsize = %d:", bufsize);
+    PrintDebugString("[INFO]: Processing package sent from Windows, bufsize = %d", bufsize);
 
     PackageType *type = (PackageType *) buffer;
     LRESULT returnVal = 0;
-    PrintDebugString("[INFO]:  PackageType = %X:", *type);
+    PrintDebugString("[INFO]:   PackageType = %X", *type);
     jobject rAC;
 
     switch (*type) {
@@ -442,8 +442,8 @@ JavaAccessBridge::processPackage(char *buffer, int bufsize) {
                 (MemoryMappedFileCreatedPackage *) (buffer + sizeof(PackageType));
             returnVal = MemoryMappedFileCreated((HWND)ABLongToHandle(pkg->bridgeWindow), pkg->filename);
         } else {
-            PrintDebugString("[ERROR]:    processing FAILED!! -> bufsize = %d; expectation = %d",
-                             bufsize, sizeof(PackageType) + sizeof(MemoryMappedFileCreatedPackage));
+            PrintDebugString("[ERROR]:   processing FAILED!! -> bufsize = %d; expectation = %d",
+                             bufsize, int{sizeof(PackageType) + sizeof(MemoryMappedFileCreatedPackage)});
         }
         break;
 
@@ -457,7 +457,7 @@ JavaAccessBridge::processPackage(char *buffer, int bufsize) {
             releaseJavaObject((jobject)pkg->object);
         } else {
             PrintDebugString("[ERROR]:   processing FAILED!! -> bufsize = %d; expectation = %d",
-                             bufsize, sizeof(PackageType) + sizeof(ReleaseJavaObjectPackage));
+                             bufsize, int{sizeof(PackageType) + sizeof(ReleaseJavaObjectPackage)});
         }
         break;
 
@@ -468,8 +468,8 @@ JavaAccessBridge::processPackage(char *buffer, int bufsize) {
                 (GetAccessBridgeVersionPackage *) (buffer + sizeof(PackageType));
             windowsThreadEntryPoints->getVersionInfo(&(pkg->rVersionInfo));
         } else {
-            PrintDebugString("[ERROR]:    processing FAILED!! -> bufsize = %d; expectation = %d",
-                             bufsize, sizeof(PackageType) + sizeof(GetAccessBridgeVersionPackage));
+            PrintDebugString("[ERROR]:   processing FAILED!! -> bufsize = %d; expectation = %d",
+                             bufsize, int{sizeof(PackageType) + sizeof(GetAccessBridgeVersionPackage)});
         }
         break;
 
@@ -480,10 +480,10 @@ JavaAccessBridge::processPackage(char *buffer, int bufsize) {
                 (IsJavaWindowPackage *) (buffer + sizeof(PackageType));
             pkg->rResult =
                 windowsThreadEntryPoints->isJavaWindow(pkg->window);
-            PrintDebugString("[INFO]:     -> returning result = %d", pkg->rResult);
+            PrintDebugString("[INFO]:   -> returning result = %d", int{pkg->rResult});
         } else {
-            PrintDebugString("[ERROR]:    processing FAILED!! -> bufsize = %d; expectation = %d",
-                             bufsize, sizeof(PackageType) + sizeof(IsJavaWindowPackage));
+            PrintDebugString("[ERROR]:   processing FAILED!! -> bufsize = %d; expectation = %d",
+                             bufsize, int{sizeof(PackageType) + sizeof(IsJavaWindowPackage)});
         }
         break;
 
@@ -494,26 +494,26 @@ JavaAccessBridge::processPackage(char *buffer, int bufsize) {
                 (IsSameObjectPackage *) (buffer + sizeof(PackageType));
             pkg->rResult =
                 windowsThreadEntryPoints->isSameObject((jobject)pkg->obj1, (jobject)pkg->obj2);
-            PrintDebugString("[INFO]:     -> returning result = %d", pkg->rResult);
+            PrintDebugString("[INFO]:   -> returning result = %d", int{pkg->rResult});
         } else {
-            PrintDebugString("[ERROR]:    processing FAILED!! -> bufsize = %d; expectation = %d",
-                             bufsize, sizeof(PackageType) + sizeof(IsSameObjectPackage));
+            PrintDebugString("[ERROR]:   processing FAILED!! -> bufsize = %d; expectation = %d",
+                             bufsize, int{sizeof(PackageType) + sizeof(IsSameObjectPackage)});
         }
         break;
 
 
     case cGetAccessibleContextFromHWNDPackage:
-        PrintDebugString("[INFO]:    type == cGetAccessibleContextFromHWNDPackage");
+        PrintDebugString("[INFO]:   type == cGetAccessibleContextFromHWNDPackage");
         if (bufsize == (sizeof(PackageType) + sizeof(GetAccessibleContextFromHWNDPackage))) {
             GetAccessibleContextFromHWNDPackage *pkg =
                 (GetAccessibleContextFromHWNDPackage *) (buffer + sizeof(PackageType));
             rAC = windowsThreadEntryPoints->getAccessibleContextFromHWND(pkg->window);
             pkg->rAccessibleContext = (JOBJECT64)rAC;
             pkg->rVMID = HandleToLong(dialogWindow);
-            PrintDebugString("[INFO]:      -> returning AC = %p, vmID = %X", rAC, pkg->rVMID);
+            PrintDebugString("[INFO]:   -> returning AC = %p, vmID = %lX", rAC, pkg->rVMID);
         } else {
-            PrintDebugString("[ERROR]:    processing FAILED!! -> bufsize = %d; expectation = %d",
-                             bufsize, sizeof(PackageType) + sizeof(GetAccessibleContextFromHWNDPackage));
+            PrintDebugString("[ERROR]:   processing FAILED!! -> bufsize = %d; expectation = %d",
+                             bufsize, int{sizeof(PackageType) + sizeof(GetAccessibleContextFromHWNDPackage)});
         }
         break;
 
@@ -525,10 +525,10 @@ JavaAccessBridge::processPackage(char *buffer, int bufsize) {
                 (GetHWNDFromAccessibleContextPackage *) (buffer + sizeof(PackageType));
             pkg->rHWND =
                 ABHandleToLong( windowsThreadEntryPoints->getHWNDFromAccessibleContext((jobject)pkg->accessibleContext) );
-            PrintDebugString("[INFO]:     -> returning HWND = %p", pkg->rHWND);
+            PrintDebugString("[INFO]:   -> returning HWND = %p", pkg->rHWND);
         } else {
-            PrintDebugString("[ERROR]:    processing FAILED!! -> bufsize = %d; expectation = %d",
-                             bufsize, sizeof(PackageType) + sizeof(GetHWNDFromAccessibleContextPackage));
+            PrintDebugString("[ERROR]:   processing FAILED!! -> bufsize = %d; expectation = %d",
+                             bufsize, int{sizeof(PackageType) + sizeof(GetHWNDFromAccessibleContextPackage)});
         }
         break;
 
@@ -542,10 +542,10 @@ JavaAccessBridge::processPackage(char *buffer, int bufsize) {
                 (SetTextContentsPackage *) (buffer + sizeof(PackageType));
             pkg->rResult =
                 windowsThreadEntryPoints->setTextContents((jobject)pkg->accessibleContext, pkg->text);
-            PrintDebugString("[INFO]:     -> returning result = %d", pkg->rResult);
+            PrintDebugString("[INFO]:   -> returning result = %d", int{pkg->rResult});
         } else {
-            PrintDebugString("[ERROR]:    processing FAILED!! -> bufsize = %d; expectation = %d",
-                             bufsize, sizeof(PackageType) + sizeof(SetTextContentsPackage));
+            PrintDebugString("[ERROR]:   processing FAILED!! -> bufsize = %d; expectation = %d",
+                             bufsize, int{sizeof(PackageType) + sizeof(SetTextContentsPackage)});
         }
         break;
 
@@ -556,14 +556,14 @@ JavaAccessBridge::processPackage(char *buffer, int bufsize) {
             rAC = windowsThreadEntryPoints->getParentWithRole((jobject)pkg->accessibleContext, pkg->role);
             pkg->rAccessibleContext = (JOBJECT64)rAC;
             PrintDebugString("[INFO]:   type == cGetParentWithRolePackage\n"\
-                             "     pkg->vmID: %X"\
+                             "     pkg->vmID: %lX"\
                              "     pkg->accessibleContext: %p"\
                              "     pkg->role: %ls"\
                              "     -> returning rAccessibleContext = %p"\
                 , pkg->vmID, (jobject)pkg->accessibleContext, pkg->role, rAC);
         } else {
             PrintDebugString("[ERROR]:   processing FAILED!! -> bufsize = %d; expectation = %d",
-                             bufsize, sizeof(PackageType) + sizeof(GetParentWithRolePackage));
+                             bufsize, int{sizeof(PackageType) + sizeof(GetParentWithRolePackage)});
         }
         break;
 
@@ -574,10 +574,10 @@ JavaAccessBridge::processPackage(char *buffer, int bufsize) {
                 (GetTopLevelObjectPackage *) (buffer + sizeof(PackageType));
             rAC = windowsThreadEntryPoints->getTopLevelObject((jobject)pkg->accessibleContext);
             pkg->rAccessibleContext = (JOBJECT64)rAC;
-            PrintDebugString("[INFO]:      -> returning rAccessibleContext = %p", rAC);
+            PrintDebugString("[INFO]:   -> returning rAccessibleContext = %p", rAC);
         } else {
-            PrintDebugString("[ERROR]:    processing FAILED!! -> bufsize = %d; expectation = %d",
-                             bufsize, sizeof(PackageType) + sizeof(GetTopLevelObjectPackage));
+            PrintDebugString("[ERROR]:   processing FAILED!! -> bufsize = %d; expectation = %d",
+                             bufsize, int{sizeof(PackageType) + sizeof(GetTopLevelObjectPackage)});
         }
         break;
 
@@ -588,10 +588,10 @@ JavaAccessBridge::processPackage(char *buffer, int bufsize) {
                 (GetParentWithRoleElseRootPackage *) (buffer + sizeof(PackageType));
             rAC = windowsThreadEntryPoints->getParentWithRoleElseRoot((jobject)pkg->accessibleContext, pkg->role);
             pkg->rAccessibleContext = (JOBJECT64)rAC;
-            PrintDebugString("[INFO]:      -> returning rAccessibleContext = %p", rAC);
+            PrintDebugString("[INFO]:   -> returning rAccessibleContext = %p", rAC);
         } else {
-            PrintDebugString("[ERROR]:    processing FAILED!! -> bufsize = %d; expectation = %d",
-                             bufsize, sizeof(PackageType) + sizeof(GetParentWithRoleElseRootPackage));
+            PrintDebugString("[ERROR]:   processing FAILED!! -> bufsize = %d; expectation = %d",
+                             bufsize, int{sizeof(PackageType) + sizeof(GetParentWithRoleElseRootPackage)});
         }
         break;
 
@@ -602,10 +602,10 @@ JavaAccessBridge::processPackage(char *buffer, int bufsize) {
                 (GetObjectDepthPackage *) (buffer + sizeof(PackageType));
             pkg->rResult =
                 windowsThreadEntryPoints->getObjectDepth((jobject)pkg->accessibleContext);
-            PrintDebugString("[INFO]:     -> returning rResult = %d", pkg->rResult);
+            PrintDebugString("[INFO]:   -> returning rResult = %d", pkg->rResult);
         } else {
-            PrintDebugString("[ERROR]:    processing FAILED!! -> bufsize = %d; expectation = %d",
-                             bufsize, sizeof(PackageType) + sizeof(GetObjectDepthPackage));
+            PrintDebugString("[ERROR]:   processing FAILED!! -> bufsize = %d; expectation = %d",
+                             bufsize, int{sizeof(PackageType) + sizeof(GetObjectDepthPackage)});
         }
         break;
 
@@ -616,10 +616,10 @@ JavaAccessBridge::processPackage(char *buffer, int bufsize) {
                 (GetActiveDescendentPackage *) (buffer + sizeof(PackageType));
             rAC = windowsThreadEntryPoints->getActiveDescendent((jobject)pkg->accessibleContext);
             pkg->rAccessibleContext = (JOBJECT64)rAC;
-            PrintDebugString("[INFO]:  -> returning rAccessibleContext = %p", rAC);
+            PrintDebugString("[INFO]:   -> returning rAccessibleContext = %p", rAC);
         } else {
             PrintDebugString("[ERROR]:   processing FAILED!! -> bufsize = %d; expectation = %d",
-                             bufsize, sizeof(PackageType) + sizeof(GetActiveDescendentPackage));
+                             bufsize, int{sizeof(PackageType) + sizeof(GetActiveDescendentPackage)});
         }
         break;
 
@@ -632,8 +632,8 @@ JavaAccessBridge::processPackage(char *buffer, int bufsize) {
                 windowsThreadEntryPoints->getAccessibleContextAt(pkg->x, pkg->y,
                                                                  (jobject)pkg->AccessibleContext);
         } else {
-            PrintDebugString("[ERROR]:    processing FAILED!! -> bufsize = %d; expectation = %d",
-                             bufsize, sizeof(PackageType) + sizeof(GetAccessibleContextAtPackage));
+            PrintDebugString("[ERROR]:   processing FAILED!! -> bufsize = %d; expectation = %d",
+                             bufsize, int{sizeof(PackageType) + sizeof(GetAccessibleContextAtPackage)});
         }
         break;
 
@@ -646,8 +646,8 @@ JavaAccessBridge::processPackage(char *buffer, int bufsize) {
                 windowsThreadEntryPoints->getAccessibleContextWithFocus();
                         pkg->rVMID =  HandleToLong(dialogWindow);
         } else {
-            PrintDebugString("[ERROR]:    processing FAILED!! -> bufsize = %d; expectation = %d",
-                             bufsize, sizeof(PackageType) + sizeof(GetAccessibleContextWithFocusPackage));
+            PrintDebugString("[ERROR]:   processing FAILED!! -> bufsize = %d; expectation = %d",
+                             bufsize, int{sizeof(PackageType) + sizeof(GetAccessibleContextWithFocusPackage)});
         }
         break;
 
@@ -659,8 +659,8 @@ JavaAccessBridge::processPackage(char *buffer, int bufsize) {
             windowsThreadEntryPoints->getAccessibleContextInfo(
                                                                (jobject)pkg->AccessibleContext, &(pkg->rAccessibleContextInfo));
         } else {
-            PrintDebugString("[ERROR]:    processing FAILED!! -> bufsize = %d; expectation = %d",
-                             bufsize, sizeof(PackageType) + sizeof(GetAccessibleContextInfoPackage));
+            PrintDebugString("[ERROR]:   processing FAILED!! -> bufsize = %d; expectation = %d",
+                             bufsize, int{sizeof(PackageType) + sizeof(GetAccessibleContextInfoPackage)});
         }
         break;
 
@@ -672,8 +672,8 @@ JavaAccessBridge::processPackage(char *buffer, int bufsize) {
             pkg->rAccessibleContext = (JOBJECT64)windowsThreadEntryPoints->getAccessibleChildFromContext(
                                                                                               (jobject)pkg->AccessibleContext, pkg->childIndex);
         } else {
-            PrintDebugString("[ERROR]:    processing FAILED!! -> bufsize = %d; expectation = %d",
-                             bufsize, sizeof(PackageType) + sizeof(GetAccessibleChildFromContextPackage));
+            PrintDebugString("[ERROR]:   processing FAILED!! -> bufsize = %d; expectation = %d",
+                             bufsize, int{sizeof(PackageType) + sizeof(GetAccessibleChildFromContextPackage)});
         }
         break;
 
@@ -1487,7 +1487,7 @@ JavaAccessBridge::processPackage(char *buffer, int bufsize) {
         break;
     }
 
-    PrintDebugString("[INFO]:    package processing completed");
+    PrintDebugString("[INFO]:   package processing completed");
     return returnVal;
 }
 
@@ -1506,17 +1506,17 @@ JavaAccessBridge::processPackage(char *buffer, int bufsize) {
  */
 LRESULT
 JavaAccessBridge::MemoryMappedFileCreated(HWND ATBridgeDLLWindow, char *filename) {
-    PrintDebugString("[INFO]:   in MemoryMappedFileCreated(%p, %s)!", ATBridgeDLLWindow, filename);
+    PrintDebugString("[INFO]: in MemoryMappedFileCreated(%p, %s)!", ATBridgeDLLWindow, filename);
     AccessBridgeATInstance *newAT =
         new AccessBridgeATInstance(dialogWindow, ATBridgeDLLWindow, filename, ATs);
-    PrintDebugString("[INFO]:     just created a new ATInstance = %p, old = %p", newAT, ATs);
+    PrintDebugString("[INFO]:   just created a new ATInstance = %p, old = %p", newAT, ATs);
     ATs = newAT;
 
     LRESULT returnVal = ATs->initiateIPC();
     if (returnVal == 0) {
         PrintDebugString("[INFO]:   Successfully initiated IPC with AT!!!");
     } else {
-        PrintDebugString("[ERROR]: Failed to initiate IPC with AT!!!");
+        PrintDebugString("[ERROR]:   Failed to initiate IPC with AT!!!");
     }
 
     return returnVal;
@@ -1531,7 +1531,7 @@ void
 JavaAccessBridge::WindowsATDestroyed(HWND ATBridgeDLLWindow) {
     PrintDebugString("[INFO]: in JavaAccessBridge::WindowsATDestroyed(%p)", ATBridgeDLLWindow);
     if (ATs == nullptr) {
-        PrintDebugString("[ERROR]: -> ATs == 0! (shouldn't happen here)");
+        PrintDebugString("[ERROR]:   -> ATs == 0! (shouldn't happen here)");
         return;
     }
 
@@ -1556,7 +1556,7 @@ JavaAccessBridge::WindowsATDestroyed(HWND ATBridgeDLLWindow) {
                 currentAT = currentAT->nextATInstance;
             }
         }
-        PrintDebugString("[ERROR]: couldn't find matching data structures!");
+        PrintDebugString("[ERROR]:   couldn't find matching data structures!");
     }
 }
 
@@ -1578,9 +1578,9 @@ JavaAccessBridge::releaseJavaObject(jobject object) {
     PrintDebugString("[INFO]:   object X: %p", object);
     if (windowsThreadJNIEnv != nullptr) {
         windowsThreadJNIEnv->DeleteGlobalRef(object);
-        PrintDebugString("[INFO]:   global reference deleted.", object);
+        PrintDebugString("[INFO]:   global reference deleted.");
     } else {
-        PrintDebugString("[ERROR]: windowsThreadJNIEnv == 0");
+        PrintDebugString("[ERROR]:   windowsThreadJNIEnv == 0");
     }
 }
 
@@ -1594,19 +1594,19 @@ void
 JavaAccessBridge::addJavaEventNotification(jlong type, HWND DLLwindow) {
     // walk through list of ATs, find this one and add this type
     // and, if we weren't listening for these before, ask Java for 'em
-    PrintDebugString("[INFO]:   adding Java event type %016I64X to HWND %p", type, DLLwindow);
+    PrintDebugString("[INFO]: adding Java event type %016I64X to HWND %p", type, DLLwindow);
     AccessBridgeATInstance *ati = ATs;
     long globalEventMask = 0;
     while (ati != nullptr) {
         if (ati->winAccessBridgeWindow == DLLwindow) {
             ati->javaEventMask |= type;
-            PrintDebugString("[INFO]:   found HWND, javaEventMask now is %X", ati->javaEventMask);
+            PrintDebugString("[INFO]:   found HWND, javaEventMask now is %lX", ati->javaEventMask);
         } else {
             globalEventMask |= ati->javaEventMask;
         }
         ati = ati->nextATInstance;
     }
-    PrintDebugString("[INFO]:   union of all Java AT event masks: %X", globalEventMask);
+    PrintDebugString("[INFO]:   union of all Java AT event masks: %lX", globalEventMask);
     if (!(globalEventMask & type)) {
         // no other ATs wanted this event;
         // start getting them from Java
@@ -1623,19 +1623,19 @@ void
 JavaAccessBridge::removeJavaEventNotification(jlong type, HWND DLLwindow) {
     // walk through list of ATs, find this one and remove this type
     // and, if no other AT wants 'em either, tell Java we no longer want 'em
-    PrintDebugString("[INFO]:   removing Java event type %016I64X from HWND %p", type, DLLwindow);
+    PrintDebugString("[INFO]: removing Java event type %016I64X from HWND %p", type, DLLwindow);
     AccessBridgeATInstance *ati = ATs;
     long globalEventMask = 0;
     while (ati != nullptr) {
         if (ati->winAccessBridgeWindow == DLLwindow) {
             ati->javaEventMask &= (0xFFFFFFFF - type);
-            PrintDebugString("[INFO]:   found HWND, javaEventMask now is %X", ati->javaEventMask);
+            PrintDebugString("[INFO]:   found HWND, javaEventMask now is %lX", ati->javaEventMask);
         } else {
             globalEventMask |= ati->javaEventMask;
         }
         ati = ati->nextATInstance;
     }
-    PrintDebugString("[INFO]:   union of all Java AT event masks: %X", globalEventMask);
+    PrintDebugString("[INFO]:   union of all Java AT event masks: %lX", globalEventMask);
     if (!(globalEventMask & type)) {
         // no other ATs wanted this event;
         // stop getting them from Java
@@ -1653,23 +1653,23 @@ void
 JavaAccessBridge::addAccessibilityEventNotification(jlong type, HWND DLLwindow) {
     // walk through list of ATs, find this one and add this type
     // and, if we weren't listening for these before, ask Java for 'em
-    PrintDebugString("[INFO]:   adding Accesibility event type %016I64X to HWND %p", type, DLLwindow);
+    PrintDebugString("[INFO]:   adding accessibility event type %016I64X to HWND %p", type, DLLwindow);
     AccessBridgeATInstance *ati = ATs;
     long globalEventMask = 0;
     while (ati != nullptr) {
         if (ati->winAccessBridgeWindow == DLLwindow) {
             ati->accessibilityEventMask |= type;
-            PrintDebugString("[INFO]:   found HWND, accessibilityEventMask now is %X", ati->accessibilityEventMask);
+            PrintDebugString("[INFO]:   found HWND, accessibilityEventMask now is %lX", ati->accessibilityEventMask);
         } else {
             globalEventMask |= ati->accessibilityEventMask;
         }
         ati = ati->nextATInstance;
     }
-    PrintDebugString("[INFO]:   union of all Accessibility AT event masks: %X", globalEventMask);
+    PrintDebugString("[INFO]:   union of all accessibility AT event masks: %lX", globalEventMask);
     if (!(globalEventMask & type)) {
         // no other ATs wanted this event;
         // start getting them from Java
-        PrintDebugString("[INFO]:   no other AT wanted this Accesibility event (so not registered); adding to AccessBridge.java");
+        PrintDebugString("[INFO]:   no other AT wanted this accessibility event (so not registered); adding to AccessBridge.java");
         windowsThreadEntryPoints->addAccessibilityEventNotification(type);
     }
 }
@@ -1682,25 +1682,29 @@ void
 JavaAccessBridge::removeAccessibilityEventNotification(jlong type, HWND DLLwindow) {
     // walk through list of ATs, find this one and remove this type
     // and, if no other AT wants 'em either, tell Java we no longer want 'em
-    PrintDebugString("[INFO]:   removing Accesibility event type %016I64X from HWND %p", type, DLLwindow);
+    PrintDebugString("[INFO]:   removing accessibility event type %016I64X from HWND %p", type, DLLwindow);
 
     AccessBridgeATInstance *ati = ATs;
     long globalEventMask = 0;
     while (ati != nullptr) {
         if (ati->winAccessBridgeWindow == DLLwindow) {
             ati->accessibilityEventMask &= (0xFFFFFFFF - type);
-            PrintDebugString("[INFO]:   found HWND, accessibilityEventMask now is %X", ati->accessibilityEventMask);
+            PrintDebugString("[INFO]:   found HWND, accessibilityEventMask now is %lX", ati->accessibilityEventMask);
         } else {
             globalEventMask |= ati->accessibilityEventMask;
         }
         ati = ati->nextATInstance;
     }
-    PrintDebugString("[INFO]:   union of all Accessibility AT event masks: %X", globalEventMask);
+    PrintDebugString("[INFO]:   union of all accessibility AT event masks: %lX", globalEventMask);
     if (!(globalEventMask & type)) {
         // no other ATs wanted this event;
         // stop getting them from Java
-        PrintDebugString("[INFO]:   no other AT wanted this Accessibility event (so can remove); removing from AccessBridge.java");
-        windowsThreadEntryPoints->removeAccessibilityEventNotification(type);
+        PrintDebugString("[INFO]:   no other AT wanted this accessibility event (so can remove); removing from AccessBridge.java");
+        if (windowsThreadEntryPoints == nullptr) {
+            PrintDebugString("[ERROR]:   can't remove the event type because windowsThreadEntryPoints is null.");
+        } else {
+            windowsThreadEntryPoints->removeAccessibilityEventNotification(type);
+        }
     }
 }
 
@@ -1716,13 +1720,13 @@ JavaAccessBridge::firePropertyCaretChange(JNIEnv *env, jobject callingObj,
                                           jobject event, jobject source,
                                           jint oldValue, jint newValue) {
 
-    PrintDebugString("[INFO]: Java_com_sun_java_accessibility_internal_AccessBridge_propertyCaretChanged(%p, %p, %p, %p, %d, %d)",
+    PrintDebugString("[INFO]: Java_com_sun_java_accessibility_internal_AccessBridge_propertyCaretChanged(%p, %p, %p, %p, %ld, %ld)",
                      env, callingObj, event,
-                     source, oldValue, newValue);
+                     source, long{oldValue}, long{newValue});
 
     // sanity check
     if (ATs == nullptr) {
-        PrintDebugString("[ERROR]: ATs == 0! (shouldn't happen here!)");
+        PrintDebugString("[ERROR]:   ATs == 0! (shouldn't happen here!)");
         return;         // panic!
     }
 
@@ -1745,10 +1749,10 @@ JavaAccessBridge::firePropertyCaretChange(JNIEnv *env, jobject callingObj,
             pkg->AccessibleContextSource = (JOBJECT64)env->NewGlobalRef(source);
 #ifdef ACCESSBRIDGE_ARCH_LEGACY // JOBJECT64 is jobject (32 bit pointer)
             PrintDebugString("[INFO]:   GlobalRef'd Event: %p"\
-                             "          GlobalRef'd Source: %p", pkg->Event, pkg->AccessibleContextSource);
+                                     "  GlobalRef'd Source: %p", pkg->Event, pkg->AccessibleContextSource);
 #else // JOBJECT64 is jlong (64 bit)
             PrintDebugString("[INFO]:   GlobalRef'd Event: %016I64X"\
-                             "          GlobalRef'd Source: %016I64X", pkg->Event, pkg->AccessibleContextSource);
+                                     "  GlobalRef'd Source: %016I64X", pkg->Event, pkg->AccessibleContextSource);
 #endif
 
             pkg->oldPosition = oldValue;
@@ -1758,7 +1762,7 @@ JavaAccessBridge::firePropertyCaretChange(JNIEnv *env, jobject callingObj,
         }
         ati = ati->nextATInstance;
     }
-    PrintDebugString("[INFO]:  done with propertyCaretChange event");
+    PrintDebugString("[INFO]:   done with propertyCaretChange event");
 }
 
 /**
@@ -1776,7 +1780,7 @@ JavaAccessBridge::firePropertyDescriptionChange(JNIEnv *env, jobject callingObj,
 
     // sanity check
     if (ATs == nullptr) {
-        PrintDebugString("[ERROR]: ATs == 0! (shouldn't happen here!)");
+        PrintDebugString("[ERROR]:   ATs == 0! (shouldn't happen here!)");
         return;         // panic!
     }
 
@@ -1800,10 +1804,10 @@ JavaAccessBridge::firePropertyDescriptionChange(JNIEnv *env, jobject callingObj,
             pkg->AccessibleContextSource = (JOBJECT64)env->NewGlobalRef(source);
 #ifdef ACCESSBRIDGE_ARCH_LEGACY // JOBJECT64 is jobject (32 bit pointer)
             PrintDebugString("[INFO]:   GlobalRef'd Event: %p"\
-                             "          GlobalRef'd Source: %p", pkg->Event, pkg->AccessibleContextSource);
+                                     "  GlobalRef'd Source: %p", pkg->Event, pkg->AccessibleContextSource);
 #else // JOBJECT64 is jlong (64 bit)
             PrintDebugString("[INFO]:  GlobalRef'd Event: %016I64X"\
-                             "  GlobalRef'd Source: %016I64X", pkg->Event, pkg->AccessibleContextSource);
+                                    "  GlobalRef'd Source: %016I64X", pkg->Event, pkg->AccessibleContextSource);
 #endif
 
             if (oldValue != nullptr) {
@@ -1864,7 +1868,7 @@ JavaAccessBridge::firePropertyNameChange(JNIEnv *env, jobject callingObj,
 
     // sanity check
     if (ATs == nullptr) {
-        PrintDebugString("[ERROR]: ATs == 0! (shouldn't happen here!)");
+        PrintDebugString("[ERROR]:   ATs == 0! (shouldn't happen here!)");
         return;         // panic!
     }
 
@@ -1888,10 +1892,10 @@ JavaAccessBridge::firePropertyNameChange(JNIEnv *env, jobject callingObj,
             pkg->AccessibleContextSource = (JOBJECT64)env->NewGlobalRef(source);
 #ifdef ACCESSBRIDGE_ARCH_LEGACY // JOBJECT64 is jobject (32 bit pointer)
             PrintDebugString("[INFO]:   GlobalRef'd Event: %p"\
-                             "          GlobalRef'd Source: %p", pkg->Event, pkg->AccessibleContextSource);
+                                     "  GlobalRef'd Source: %p", pkg->Event, pkg->AccessibleContextSource);
 #else // JOBJECT64 is jlong (64 bit)
             PrintDebugString("[INFO]:  GlobalRef'd Event: %016I64X"\
-                             "         GlobalRef'd Source: %016I64X", pkg->Event, pkg->AccessibleContextSource);
+                                    "  GlobalRef'd Source: %016I64X", pkg->Event, pkg->AccessibleContextSource);
 #endif
 
             if (oldValue != nullptr) {
@@ -1932,7 +1936,7 @@ JavaAccessBridge::firePropertyNameChange(JNIEnv *env, jobject callingObj,
         }
         ati = ati->nextATInstance;
     }
-    PrintDebugString("[INFO]:  done with propertyNameChange event");
+    PrintDebugString("[INFO]:   done with propertyNameChange event");
 }
 
 
@@ -1949,7 +1953,7 @@ JavaAccessBridge::firePropertySelectionChange(JNIEnv *env, jobject callingObj,
 
     // sanity check
     if (ATs == nullptr) {
-        PrintDebugString("[ERROR]: ATs == 0! (shouldn't happen here!)");
+        PrintDebugString("[ERROR]:   ATs == 0! (shouldn't happen here!)");
         return;         // panic!
     }
 
@@ -1972,10 +1976,10 @@ JavaAccessBridge::firePropertySelectionChange(JNIEnv *env, jobject callingObj,
             pkg->AccessibleContextSource = (JOBJECT64)env->NewGlobalRef(source);
 #ifdef ACCESSBRIDGE_ARCH_LEGACY // JOBJECT64 is jobject (32 bit pointer)
             PrintDebugString("[INFO]:   GlobalRef'd Event: %p"\
-                             "          GlobalRef'd Source: %p", pkg->Event, pkg->AccessibleContextSource);
+                                     "  GlobalRef'd Source: %p", pkg->Event, pkg->AccessibleContextSource);
 #else // JOBJECT64 is jlong (64 bit)
             PrintDebugString("[INFO]:   GlobalRef'd Event: %016I64X"\
-                             "          GlobalRef'd Source: %016I64X", pkg->Event, pkg->AccessibleContextSource);
+                                     "  GlobalRef'd Source: %016I64X", pkg->Event, pkg->AccessibleContextSource);
 #endif
 
             ati->sendAccessibilityEventPackage(buffer, sizeof(buffer), cPropertySelectionChangeEvent);
@@ -2001,7 +2005,7 @@ JavaAccessBridge::firePropertyStateChange(JNIEnv *env, jobject callingObj,
 
     // sanity check
     if (ATs == nullptr) {
-        PrintDebugString("[ERROR]: ATs == 0! (shouldn't happen here!)");
+        PrintDebugString("[ERROR]:   ATs == 0! (shouldn't happen here!)");
         return;         // panic!
     }
 
@@ -2025,10 +2029,10 @@ JavaAccessBridge::firePropertyStateChange(JNIEnv *env, jobject callingObj,
             pkg->AccessibleContextSource = (JOBJECT64)env->NewGlobalRef(source);
 #ifdef ACCESSBRIDGE_ARCH_LEGACY // JOBJECT64 is jobject (32 bit pointer)
             PrintDebugString("[INFO]:   GlobalRef'd Event: %p"\
-                             "  GlobalRef'd Source: %p", pkg->Event, pkg->AccessibleContextSource);
+                                     "  GlobalRef'd Source: %p", pkg->Event, pkg->AccessibleContextSource);
 #else // JOBJECT64 is jlong (64 bit)
             PrintDebugString("[INFO]:  GlobalRef'd Event: %016I64X"\
-                             "  GlobalRef'd Source: %016I64X", pkg->Event, pkg->AccessibleContextSource);
+                                    "  GlobalRef'd Source: %016I64X", pkg->Event, pkg->AccessibleContextSource);
 #endif
 
             if (oldValue != nullptr) {
@@ -2069,7 +2073,7 @@ JavaAccessBridge::firePropertyStateChange(JNIEnv *env, jobject callingObj,
         }
         ati = ati->nextATInstance;
     }
-    PrintDebugString("[INFO]:  done with propertyStateChange event");
+    PrintDebugString("[INFO]:   done with propertyStateChange event");
 }
 
 
@@ -2086,7 +2090,7 @@ JavaAccessBridge::firePropertyTextChange(JNIEnv *env, jobject callingObj,
 
     // sanity check
     if (ATs == nullptr) {
-        PrintDebugString("[ERROR]: ATs == 0! (shouldn't happen here!)");
+        PrintDebugString("[ERROR]:   ATs == 0! (shouldn't happen here!)");
         return;         // panic!
     }
 
@@ -2111,15 +2115,15 @@ JavaAccessBridge::firePropertyTextChange(JNIEnv *env, jobject callingObj,
             PrintDebugString("[INFO]:   GlobalRef'd Event: %p"\
                              "          GlobalRef'd Source: %p",pkg->Event, pkg->AccessibleContextSource);
 #else // JOBJECT64 is jlong (64 bit)
-            PrintDebugString("[INFO]:  GlobalRef'd Event: %016I64X"\
-                             "  GlobalRef'd Source: %016I64X", pkg->Event, pkg->AccessibleContextSource);
+            PrintDebugString("[INFO]:   GlobalRef'd Event: %016I64X"\
+                                     "  GlobalRef'd Source: %016I64X", pkg->Event, pkg->AccessibleContextSource);
 #endif
 
             ati->sendAccessibilityEventPackage(buffer, sizeof(buffer), cPropertyTextChangeEvent);
         }
         ati = ati->nextATInstance;
     }
-    PrintDebugString("[INFO]:  done with propertyTextChange event");
+    PrintDebugString("[INFO]:   done with propertyTextChange event");
 }
 
 
@@ -2138,7 +2142,7 @@ JavaAccessBridge::firePropertyValueChange(JNIEnv *env, jobject callingObj,
 
     // sanity check
     if (ATs == nullptr) {
-        PrintDebugString("[ERROR]: ATs == 0! (shouldn't happen here!)");
+        PrintDebugString("[ERROR]:   ATs == 0! (shouldn't happen here!)");
         return;         // panic!
     }
 
@@ -2162,10 +2166,10 @@ JavaAccessBridge::firePropertyValueChange(JNIEnv *env, jobject callingObj,
             pkg->AccessibleContextSource = (JOBJECT64)env->NewGlobalRef(source);
 #ifdef ACCESSBRIDGE_ARCH_LEGACY // JOBJECT64 is jobject (32 bit pointer)
             PrintDebugString("[INFO]:   GlobalRef'd Event: %p"\
-                             "          GlobalRef'd Source: %p", pkg->Event, pkg->AccessibleContextSource);
+                                     "  GlobalRef'd Source: %p", pkg->Event, pkg->AccessibleContextSource);
 #else // JOBJECT64 is jlong (64 bit)
-            PrintDebugString("[INFO]:  GlobalRef'd Event: %016I64X"\
-                             "  GlobalRef'd Source: %016I64X", pkg->Event, pkg->AccessibleContextSource);
+            PrintDebugString("[INFO]:   GlobalRef'd Event: %016I64X"\
+                                     "  GlobalRef'd Source: %016I64X", pkg->Event, pkg->AccessibleContextSource);
 #endif
 
             if (oldValue != nullptr) {
@@ -2222,7 +2226,7 @@ JavaAccessBridge::firePropertyVisibleDataChange(JNIEnv *env, jobject callingObj,
 
     // sanity check
     if (ATs == nullptr) {
-        PrintDebugString("[ERROR]: ATs == 0! (shouldn't happen here!)");
+        PrintDebugString("[ERROR]:   ATs == 0! (shouldn't happen here!)");
         return;         // panic!
     }
 
@@ -2245,17 +2249,17 @@ JavaAccessBridge::firePropertyVisibleDataChange(JNIEnv *env, jobject callingObj,
             pkg->AccessibleContextSource = (JOBJECT64)env->NewGlobalRef(source);
 #ifdef ACCESSBRIDGE_ARCH_LEGACY // JOBJECT64 is jobject (32 bit pointer)
             PrintDebugString("[INFO]:   GlobalRef'd Event: %p"\
-                             "          GlobalRef'd Source: %p", pkg->Event, pkg->AccessibleContextSource);
+                                     "  GlobalRef'd Source: %p", pkg->Event, pkg->AccessibleContextSource);
 #else // JOBJECT64 is jlong (64 bit)
-            PrintDebugString("[INFO]:  GlobalRef'd Event: %016I64X"\
-                             "         GlobalRef'd Source: %016I64X", pkg->Event, pkg->AccessibleContextSource);
+            PrintDebugString("[INFO]:   GlobalRef'd Event: %016I64X"\
+                                     "  GlobalRef'd Source: %016I64X", pkg->Event, pkg->AccessibleContextSource);
 #endif
 
             ati->sendAccessibilityEventPackage(buffer, sizeof(buffer), cPropertyVisibleDataChangeEvent);
         }
         ati = ati->nextATInstance;
     }
-    PrintDebugString("[INFO]:  done with propertyVisibleDataChange event");
+    PrintDebugString("[INFO]:   done with propertyVisibleDataChange event");
 }
 
 
@@ -2274,7 +2278,7 @@ JavaAccessBridge::firePropertyChildChange(JNIEnv *env, jobject callingObj,
 
     // sanity check
     if (ATs == nullptr) {
-        PrintDebugString("[ERROR]: ATs == 0! (shouldn't happen here!)");
+        PrintDebugString("[ERROR]:   ATs == 0! (shouldn't happen here!)");
         return;         // panic!
     }
 
@@ -2290,7 +2294,7 @@ JavaAccessBridge::firePropertyChildChange(JNIEnv *env, jobject callingObj,
     while (ati != nullptr) {
         if (ati->accessibilityEventMask & cPropertyChildChangeEvent) {
 
-            PrintDebugString("[INFO]:  sending to AT");
+            PrintDebugString("[INFO]:   sending to AT");
 
             // make new GlobalRefs for this AT
             pkg->Event = (JOBJECT64)env->NewGlobalRef(event);
@@ -2298,16 +2302,16 @@ JavaAccessBridge::firePropertyChildChange(JNIEnv *env, jobject callingObj,
             pkg->oldChildAccessibleContext = (JOBJECT64)env->NewGlobalRef(oldValue);
             pkg->newChildAccessibleContext = (JOBJECT64)env->NewGlobalRef(newValue);
 #ifdef ACCESSBRIDGE_ARCH_LEGACY // JOBJECT64 is jobject (32 bit pointer)
-            PrintDebugString("[INFO]:  GlobalRef'd Event: %p"\
-                             "  GlobalRef'd Source: %p"\
-                             "  GlobalRef'd OldChildAC: %p"\
-                             "  GlobalRef'd NewChildAC: %p"\
+            PrintDebugString("[INFO]:   GlobalRef'd Event: %p"\
+                                     "  GlobalRef'd Source: %p"\
+                                     "  GlobalRef'd OldChildAC: %p"\
+                                     "  GlobalRef'd NewChildAC: %p"\
                             , pkg->Event, pkg->AccessibleContextSource, pkg->oldChildAccessibleContext, pkg->newChildAccessibleContext);
 #else // JOBJECT64 is jlong (64 bit)
             PrintDebugString("[INFO]:   GlobalRef'd Event: %016I64X"\
-                             "  GlobalRef'd Source: %016I64X"\
-                             "  GlobalRef'd OldChildAC: %016I64X"\
-                             "  GlobalRef'd NewChildAC: %016I64X"\
+                                     "  GlobalRef'd Source: %016I64X"\
+                                     "  GlobalRef'd OldChildAC: %016I64X"\
+                                     "  GlobalRef'd NewChildAC: %016I64X"\
                              , pkg->Event, pkg->AccessibleContextSource, pkg->oldChildAccessibleContext, pkg->newChildAccessibleContext);
 #endif
 
@@ -2315,7 +2319,7 @@ JavaAccessBridge::firePropertyChildChange(JNIEnv *env, jobject callingObj,
         }
         ati = ati->nextATInstance;
     }
-    PrintDebugString("[INFO]:  done with propertyChildChange event");
+    PrintDebugString("[INFO]:   done with propertyChildChange event");
 }
 
 
@@ -2334,7 +2338,7 @@ JavaAccessBridge::firePropertyActiveDescendentChange(JNIEnv *env, jobject callin
 
     // sanity check
     if (ATs == nullptr) {
-        PrintDebugString("[ERROR]: ATs == 0! (shouldn't happen here!)");
+        PrintDebugString("[ERROR]:   ATs == 0! (shouldn't happen here!)");
         return;         // panic!
     }
 
@@ -2359,15 +2363,15 @@ JavaAccessBridge::firePropertyActiveDescendentChange(JNIEnv *env, jobject callin
             pkg->newActiveDescendentAccessibleContext = (JOBJECT64)env->NewGlobalRef(newValue);
 #ifdef ACCESSBRIDGE_ARCH_LEGACY // JOBJECT64 is jobject (32 bit pointer)
             PrintDebugString("[INFO]:   GlobalRef'd Event: %p"\
-                             "  GlobalRef'd Source: %p"\
-                             "  GlobalRef'd OldActiveDescendentAC: %p"\
-                             "  GlobalRef'd NewActiveDescendentAC: %p"\
+                                     "  GlobalRef'd Source: %p"\
+                                     "  GlobalRef'd OldActiveDescendentAC: %p"\
+                                     "  GlobalRef'd NewActiveDescendentAC: %p"\
                              , pkg->Event, pkg->AccessibleContextSource, pkg->oldActiveDescendentAccessibleContext, pkg->newActiveDescendentAccessibleContext);
 #else // JOBJECT64 is jlong (64 bit)
-            PrintDebugString("[INFO]:  GlobalRef'd Event: %016I64X"\
-                             "  GlobalRef'd Source: %016I64X"\
-                             "  GlobalRef'd OldActiveDescendentAC: %016I64X"\
-                             "  GlobalRef'd NewActiveDescendentAC: %016I64X"\
+            PrintDebugString("[INFO]:   GlobalRef'd Event: %016I64X"\
+                                     "  GlobalRef'd Source: %016I64X"\
+                                     "  GlobalRef'd OldActiveDescendentAC: %016I64X"\
+                                     "  GlobalRef'd NewActiveDescendentAC: %016I64X"\
             , pkg->Event, pkg->AccessibleContextSource, pkg->oldActiveDescendentAccessibleContext, pkg->newActiveDescendentAccessibleContext);
 #endif
 
@@ -2375,7 +2379,7 @@ JavaAccessBridge::firePropertyActiveDescendentChange(JNIEnv *env, jobject callin
         }
         ati = ati->nextATInstance;
     }
-    PrintDebugString("[INFO]:  done with propertyActiveChange event");
+    PrintDebugString("[INFO]:   done with propertyActiveChange event");
 }
 
 /**
@@ -2393,7 +2397,7 @@ JavaAccessBridge::firePropertyTableModelChange(JNIEnv *env, jobject callingObj,
 
     // sanity check
     if (ATs == nullptr) {
-        PrintDebugString("[ERROR]: ATs == 0! (shouldn't happen here!)");
+        PrintDebugString("[ERROR]:   ATs == 0! (shouldn't happen here!)");
         return;         // panic!
     }
 
@@ -2417,10 +2421,10 @@ JavaAccessBridge::firePropertyTableModelChange(JNIEnv *env, jobject callingObj,
             pkg->AccessibleContextSource = (JOBJECT64)env->NewGlobalRef(source);
 #ifdef ACCESSBRIDGE_ARCH_LEGACY // JOBJECT64 is jobject (32 bit pointer)
             PrintDebugString("[INFO]:   GlobalRef'd Event: %p"\
-                             "          GlobalRef'd Source: %p", pkg->Event, pkg->AccessibleContextSource);
+                                     "  GlobalRef'd Source: %p", pkg->Event, pkg->AccessibleContextSource);
 #else // JOBJECT64 is jlong (64 bit)
             PrintDebugString("[INFO]:   GlobalRef'd Event: %016I64X"\
-                             "          GlobalRef'd Source: %016I64X", pkg->Event, pkg->AccessibleContextSource);
+                                     "  GlobalRef'd Source: %016I64X", pkg->Event, pkg->AccessibleContextSource);
 #endif
 
             if (oldValue != nullptr) {
@@ -2461,7 +2465,7 @@ JavaAccessBridge::firePropertyTableModelChange(JNIEnv *env, jobject callingObj,
         }
         ati = ati->nextATInstance;
     }
-    PrintDebugString("[INFO]:  done with propertyTableModelChange event");
+    PrintDebugString("[INFO]:   done with propertyTableModelChange event");
 }
 
 
@@ -2469,61 +2473,61 @@ JavaAccessBridge::firePropertyTableModelChange(JNIEnv *env, jobject callingObj,
 #ifdef ACCESSBRIDGE_ARCH_LEGACY // JOBJECT64 is jobject (32 bit pointer)
 #define PRINT_GLOBALREFS() \
     PrintDebugString("[INFO]:   GlobalRef'd Event: %p"\
-                     "          GlobalRef'd Source: %p", pkg->Event, pkg->AccessibleContextSource);
+                             "  GlobalRef'd Source: %p", pkg->Event, pkg->AccessibleContextSource);
 #else // JOBJECT64 is jlong (64 bit)
 #define PRINT_GLOBALREFS() \
-    PrintDebugString("[INFO]:  GlobalRef'd Event: %016I64X"\
-                     "  GlobalRef'd Source: %016I64X", pkg->Event, pkg->AccessibleContextSource);
+    PrintDebugString("[INFO]:   GlobalRef'd Event: %016I64X"\
+                             "  GlobalRef'd Source: %016I64X", pkg->Event, pkg->AccessibleContextSource);
 #endif
 
-#define FIRE_EVENT(function, packageStruct, packageConstant, eventConstant)             \
-    void JavaAccessBridge::function(JNIEnv *env, jobject callingObj,                    \
-                                    jobject eventObj, jobject source) {                 \
-                                                                                        \
-        PrintDebugString("[INFO]: Firing event id = %d(%p, %p, %p, %p); vmID = %X",     \
-                        eventConstant, env, callingObj, eventObj, source, dialogWindow);\
-                                                                                        \
-        /* sanity check */                                                              \
-        if (ATs == (AccessBridgeATInstance *) 0) {                                      \
-            PrintDebugString("[ERROR]: ATs == 0! (shouldn't happen here!)");            \
-            return;         /* panic! */                                                \
-        }                                                                               \
-                                                                                        \
-        /* common setup */                                                              \
-        char buffer[sizeof(PackageType) + sizeof(packageStruct)];                       \
-        PackageType *type = (PackageType *) buffer;                                     \
-        packageStruct *pkg = (packageStruct *) (buffer + sizeof(PackageType));          \
-        *type = packageConstant;                                                        \
-        pkg->vmID = (long) dialogWindow;                                                \
-                                                                                        \
-        /* make new Global Refs, send events only to those ATs that want 'em */         \
-        AccessBridgeATInstance *ati = ATs;                                              \
-        while (ati != (AccessBridgeATInstance *) 0) {                                   \
-            PrintDebugString("[INFO]: javaEventMask = %X eventConstant=%d pkg->vmID=%X",\
-                             ati->javaEventMask, eventConstant, pkg->vmID );            \
-            if (ati->javaEventMask & eventConstant) {                                   \
-                                                                                        \
-                PrintDebugString("[INFO]:   sending to AT");                            \
-                /* make new GlobalRefs for this AT */                                   \
-                pkg->Event = (JOBJECT64)env->NewGlobalRef(eventObj);                    \
-                pkg->AccessibleContextSource = (JOBJECT64)env->NewGlobalRef(source);    \
-                PRINT_GLOBALREFS()                                                      \
-                                                                                        \
-                ati->sendJavaEventPackage(buffer, sizeof(buffer), eventConstant);       \
-            }                                                                           \
-            ati = ati->nextATInstance;                                                  \
-        }                                                                               \
-        PrintDebugString("[INFO]:   done with firing AWT event");                       \
+#define FIRE_EVENT(function, packageStruct, packageConstant, eventConstant)                 \
+    void JavaAccessBridge::function(JNIEnv *env, jobject callingObj,                        \
+                                    jobject eventObj, jobject source) {                     \
+                                                                                            \
+        PrintDebugString("[INFO]:   Firing event id = %d(%p, %p, %p, %p); vmID = %X",       \
+                        eventConstant, env, callingObj, eventObj, source, dialogWindow);    \
+                                                                                            \
+        /* sanity check */                                                                  \
+        if (ATs == (AccessBridgeATInstance *) 0) {                                          \
+            PrintDebugString("[ERROR]:   ATs == 0! (shouldn't happen here!)");              \
+            return;         /* panic! */                                                    \
+        }                                                                                   \
+                                                                                            \
+        /* common setup */                                                                  \
+        char buffer[sizeof(PackageType) + sizeof(packageStruct)];                           \
+        PackageType *type = (PackageType *) buffer;                                         \
+        packageStruct *pkg = (packageStruct *) (buffer + sizeof(PackageType));              \
+        *type = packageConstant;                                                            \
+        pkg->vmID = (long) dialogWindow;                                                    \
+                                                                                            \
+        /* make new Global Refs, send events only to those ATs that want 'em */             \
+        AccessBridgeATInstance *ati = ATs;                                                  \
+        while (ati != (AccessBridgeATInstance *) 0) {                                       \
+            PrintDebugString("[INFO]:   javaEventMask = %X eventConstant=%d pkg->vmID=%X",  \
+                             ati->javaEventMask, eventConstant, pkg->vmID );                \
+            if (ati->javaEventMask & eventConstant) {                                       \
+                                                                                            \
+                PrintDebugString("[INFO]:   sending to AT");                                \
+                /* make new GlobalRefs for this AT */                                       \
+                pkg->Event = (JOBJECT64)env->NewGlobalRef(eventObj);                        \
+                pkg->AccessibleContextSource = (JOBJECT64)env->NewGlobalRef(source);        \
+                PRINT_GLOBALREFS()                                                          \
+                                                                                            \
+                ati->sendJavaEventPackage(buffer, sizeof(buffer), eventConstant);           \
+            }                                                                               \
+            ati = ati->nextATInstance;                                                      \
+        }                                                                                   \
+        PrintDebugString("[INFO]:   done with firing AWT event");                           \
     }
 
     void JavaAccessBridge::javaShutdown(JNIEnv *env, jobject callingObj) {
 
-        PrintDebugString("[INFO]: Firing event id = %d(%p, %p); vmID = %X",
-                         cJavaShutdownEvent, env, callingObj, dialogWindow);
+        PrintDebugString("[INFO]: Firing event id = %lld(%p, %p); vmID = %p",
+                         (long long){cJavaShutdownEvent}, env, callingObj, dialogWindow);
 
         /* sanity check */
         if (ATs == nullptr) {
-            PrintDebugString("[ERROR]: ATs == 0! (shouldn't happen here!)");
+            PrintDebugString("[ERROR]:  ATs == 0! (shouldn't happen here!)");
             return;             /* panic! */
         }
 
