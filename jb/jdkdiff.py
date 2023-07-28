@@ -14,7 +14,7 @@ def fatal(msg):
 
 def verbose(options, *msg):
     if options.verbose:
-        sys.stdout.write(f"[verbose] ")
+        sys.stdout.write("[verbose] ")
         sys.stdout.write(*msg)
         sys.stdout.write('\n')
 
@@ -75,8 +75,7 @@ class GitRepo:
                 fatal(f"git returned non-zero code in {self.rootpath} ({first_line(p.stderr)})")
 
     def current_branch(self):
-        branch_name = self.run_git_cmd(["branch", "--show-current"]).strip()
-        return branch_name
+        return self.run_git_cmd(["branch", "--show-current"]).strip()
 
     def log(self, path=None, limit=None):
         cmds = ["log", "--no-decorate"]
@@ -84,8 +83,7 @@ class GitRepo:
             cmds.extend(["-n", str(limit)])
         if path:
             cmds.append(path)
-        full_log = self.run_git_cmd(cmds)
-        return full_log
+        return self.run_git_cmd(cmds)
 
 
 class Commit:
@@ -178,7 +176,7 @@ def main():
     except KeyboardInterrupt:
         fatal("Interrupted")
 
-    if len(commits_to_save) > 0 and options.output_dir:
+    if commits_to_save and options.output_dir:
         print()
         if not os.path.exists(options.output_dir):
             verbose(options, f"Creating output directory {options.output_dir}")

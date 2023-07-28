@@ -96,16 +96,10 @@ class GeneralRegisterOrZr(Register):
         return self
 
     def astr(self, prefix = ""):
-        if (self.number == 31):
-            return prefix + "zr"
-        else:
-            return prefix + str(self.number)
+         return f"{prefix}zr" if (self.number == 31) else prefix + str(self.number)
 
     def __str__(self):
-        if (self.number == 31):
-            return self.astr()
-        else:
-            return self.astr("r")
+         return self.astr() if (self.number == 31) else self.astr("r")
 
 class GeneralRegisterOrSp(Register):
     def generate(self):
@@ -115,16 +109,10 @@ class GeneralRegisterOrSp(Register):
         return self
 
     def astr(self, prefix = ""):
-        if (self.number == 31):
-            return "sp"
-        else:
-            return prefix + str(self.number)
+         return "sp" if (self.number == 31) else prefix + str(self.number)
 
     def __str__(self):
-        if (self.number == 31):
-            return self.astr()
-        else:
-            return self.astr("r")
+         return self.astr() if (self.number == 31) else self.astr("r")
 
 class SVEVectorRegister(FloatRegister):
     def __str__(self):
@@ -212,14 +200,14 @@ class Instruction(object):
         self.isPostfixException = False
 
     def aname(self):
-        if self.isPostfixException:
-            return self._name
-        elif (self._name.endswith("wi")):
-            return self._name[:len(self._name)-2]
-        elif (self._name.endswith("i") | self._name.endswith("w")):
-            return self._name[:len(self._name)-1]
-        else:
-            return self._name
+         if self.isPostfixException:
+              return self._name
+         elif (self._name.endswith("wi")):
+             return self._name[:len(self._name)-2]
+         elif (self._name.endswith("i") | self._name.endswith("w")):
+              return self._name[:-1]
+         else:
+              return self._name
 
     def emit(self) :
         pass
@@ -231,7 +219,7 @@ class Instruction(object):
         return self
 
     def cstr(self):
-        return '__ %s(' % self.name()
+         return f'__ {self.name()}('
 
     def astr(self):
         return '%s\t' % self.aname()
@@ -263,8 +251,7 @@ class InstructionWithModes(Instruction):
         return self._name + (self.mode if self.mode != 'x' else '')
 
     def aname(self):
-        return (self._name+mode if (mode == 'b' or mode == 'h')
-            else self._name)
+         return self._name+mode if mode in ['b', 'h'] else self._name
 
 class ThreeRegInstruction(Instruction):
 
@@ -275,17 +262,11 @@ class ThreeRegInstruction(Instruction):
 
 
     def cstr(self):
-        return (super(ThreeRegInstruction, self).cstr()
-                + ('%s, %s, %s'
-                   % (self.reg[0],
-                      self.reg[1], self.reg[2])))
+         return f'{super(ThreeRegInstruction, self).cstr()}{self.reg[0]}, {self.reg[1]}, {self.reg[2]}'
 
     def astr(self):
-        prefix = self.asmRegPrefix
-        return (super(ThreeRegInstruction, self).astr()
-                + ('%s, %s, %s'
-                   % (self.reg[0].astr(prefix),
-                      self.reg[1].astr(prefix), self.reg[2].astr(prefix))))
+         prefix = self.asmRegPrefix
+         return f'{super(ThreeRegInstruction, self).astr()}{self.reg[0].astr(prefix)}, {self.reg[1].astr(prefix)}, {self.reg[2].astr(prefix)}'
 
 class FourRegInstruction(ThreeRegInstruction):
 
@@ -295,13 +276,11 @@ class FourRegInstruction(ThreeRegInstruction):
 
 
     def cstr(self):
-        return (super(FourRegInstruction, self).cstr()
-                + (', %s' % self.reg[3]))
+         return f'{super(FourRegInstruction, self).cstr()}, {self.reg[3]}'
 
     def astr(self):
-        prefix = self.asmRegPrefix
-        return (super(FourRegInstruction, self).astr()
-                + (', %s' % self.reg[3].astr(prefix)))
+         prefix = self.asmRegPrefix
+         return f'{super(FourRegInstruction, self).astr()}, {self.reg[3].astr(prefix)}'
 
 class TwoRegInstruction(Instruction):
 
@@ -310,16 +289,11 @@ class TwoRegInstruction(Instruction):
         return self
 
     def cstr(self):
-        return (super(TwoRegInstruction, self).cstr()
-                + '%s, %s' % (self.reg[0],
-                              self.reg[1]))
+         return f'{super(TwoRegInstruction, self).cstr()}{self.reg[0]}, {self.reg[1]}'
 
     def astr(self):
-        prefix = self.asmRegPrefix
-        return (super(TwoRegInstruction, self).astr()
-                + ('%s, %s'
-                   % (self.reg[0].astr(prefix),
-                      self.reg[1].astr(prefix))))
+         prefix = self.asmRegPrefix
+         return f'{super(TwoRegInstruction, self).astr()}{self.reg[0].astr(prefix)}, {self.reg[1].astr(prefix)}'
 
 class TwoRegImmedInstruction(TwoRegInstruction):
 
@@ -329,12 +303,10 @@ class TwoRegImmedInstruction(TwoRegInstruction):
         return self
 
     def cstr(self):
-        return (super(TwoRegImmedInstruction, self).cstr()
-                + ', %su' % self.immed)
+         return f'{super(TwoRegImmedInstruction, self).cstr()}, {self.immed}u'
 
     def astr(self):
-        return (super(TwoRegImmedInstruction, self).astr()
-                + ', #%s' % self.immed)
+         return f'{super(TwoRegImmedInstruction, self).astr()}, #{self.immed}'
 
 class OneRegOp(Instruction):
 
@@ -343,12 +315,10 @@ class OneRegOp(Instruction):
         return self
 
     def cstr(self):
-        return (super(OneRegOp, self).cstr()
-                + '%s);' % self.reg)
+         return f'{super(OneRegOp, self).cstr()}{self.reg});'
 
     def astr(self):
-        return (super(OneRegOp, self).astr()
-                + '%s' % self.reg.astr(self.asmRegPrefix))
+         return f'{super(OneRegOp, self).astr()}{self.reg.astr(self.asmRegPrefix)}'
 
 class SystemRegOp(Instruction):
     def __init__(self, args):
@@ -382,34 +352,27 @@ class SystemRegOp(Instruction):
 class SystemOneRegOp(SystemRegOp):
 
     def cstr(self):
-        return (super(SystemOneRegOp, self).cstr()
-                + '%s' % self.op1
-                + ', %s' % self.CRn
-                + ', %s' % self.CRm
-                + ', %s' % self.op2
-                + ', %s);' % self.reg[0])
+         return (
+             ((f'{super(SystemOneRegOp, self).cstr()}{self.op1}' + f', {self.CRn}')
+              + f', {self.CRm}') + f', {self.op2}') + f', {self.reg[0]});'
 
     def astr(self):
-        prefix = self.asmRegPrefix
-        return (super(SystemOneRegOp, self).astr()
-                + '%s' % self.system_reg
-                + ', %s' % self.reg[0].astr(prefix))
+         prefix = self.asmRegPrefix
+         return (f'{super(SystemOneRegOp, self).astr()}{self.system_reg}' +
+                 f', {self.reg[0].astr(prefix)}')
 
 class OneRegSystemOp(SystemRegOp):
 
     def cstr(self):
-        return (super(OneRegSystemOp, self).cstr()
-                + '%s' % self.op1
-                + ', %s' % self.CRn
-                + ', %s' % self.CRm
-                + ', %s' % self.op2
-                + ', %s);' % self.reg[0])
+         return (
+             ((f'{super(OneRegSystemOp, self).cstr()}{self.op1}' + f', {self.CRn}')
+              + f', {self.CRm}') + f', {self.op2}') + f', {self.reg[0]});'
 
     def astr(self):
-        prefix = self.asmRegPrefix
-        return (super(OneRegSystemOp, self).astr()
-                + '%s' % self.reg[0].astr(prefix)
-                + ', %s' % self.system_reg)
+         prefix = self.asmRegPrefix
+         return (
+             f'{super(OneRegSystemOp, self).astr()}{self.reg[0].astr(prefix)}' +
+             f', {self.system_reg}')
 
 class PostfixExceptionOneRegOp(OneRegOp):
 
@@ -426,21 +389,15 @@ class ArithOp(ThreeRegInstruction):
         return self
 
     def cstr(self):
-        return ('%s, Assembler::%s, %s);'
-                % (ThreeRegInstruction.cstr(self),
-                   self.kind.cstr(), self.distance))
+         return f'{ThreeRegInstruction.cstr(self)}, Assembler::{self.kind.cstr()}, {self.distance});'
 
     def astr(self):
-        return ('%s, %s #%s'
-                % (ThreeRegInstruction.astr(self),
-                   self.kind.cstr(),
-                   self.distance))
+         return f'{ThreeRegInstruction.astr(self)}, {self.kind.cstr()} #{self.distance}'
 
 class AddSubCarryOp(ThreeRegInstruction):
 
     def cstr(self):
-        return ('%s);'
-                % (ThreeRegInstruction.cstr(self)))
+         return f'{ThreeRegInstruction.cstr(self)});'
 
 class AddSubExtendedOp(ThreeRegInstruction):
 
@@ -454,19 +411,15 @@ class AddSubExtendedOp(ThreeRegInstruction):
         return self
 
     def cstr(self):
-        return (super(AddSubExtendedOp, self).cstr()
-                + (", ext::" + AddSubExtendedOp.optNames[self.option]
-                   + ", " + str(self.amount) + ");"))
+         return f"{super(AddSubExtendedOp, self).cstr()}, ext::{AddSubExtendedOp.optNames[self.option]}, {str(self.amount)});"
 
     def astr(self):
-        return (super(AddSubExtendedOp, self).astr()
-                + (", " + AddSubExtendedOp.optNames[self.option]
-                   + " #" + str(self.amount)))
+         return f"{super(AddSubExtendedOp, self).astr()}, {AddSubExtendedOp.optNames[self.option]} #{str(self.amount)}"
 
 class AddSubImmOp(TwoRegImmedInstruction):
 
     def cstr(self):
-         return super(AddSubImmOp, self).cstr() + ");"
+         return f"{super(AddSubImmOp, self).cstr()});"
 
 class LogicalImmOp(AddSubImmOp):
      def generate(self):
@@ -483,7 +436,7 @@ class LogicalImmOp(AddSubImmOp):
                   + ', #0x%x' % self.immed)
 
      def cstr(self):
-          return super(AddSubImmOp, self).cstr() + "ll);"
+          return f"{super(AddSubImmOp, self).cstr()}ll);"
 
 class SVEBinaryImmOp(Instruction):
     def __init__(self, name):
@@ -512,10 +465,10 @@ class SVEBinaryImmOp(Instruction):
         return self
 
     def cstr(self):
-        formatStr = "%s%s, %s, %su);"
-        return (formatStr
-                % tuple(["__ sve_" + self._name + "("] +
-                        [str(self.reg[0]), self._width.cstr(), self.immed]))
+         formatStr = "%s%s, %s, %su);"
+         return formatStr % tuple(
+             ([f"__ sve_{self._name}("] +
+              [str(self.reg[0]), self._width.cstr(), self.immed]))
 
     def astr(self):
         formatStr = "%s%s, %s, #0x%x"
@@ -536,15 +489,18 @@ class SVEComparisonWithZero(Instruction):
           return Instruction.generate(self)
 
      def cstr(self):
-          return ("%s(%s, %s, %s, %s, %s, 0.0);"
-                  % ("__ sve_" + self._name, "Assembler::" + self.condition,
-                     str(self.dest), self._width.cstr(), str(self.preg), str(self.reg)))
+          return f"__ sve_{self._name}(Assembler::{self.condition}, {str(self.dest)}, {self._width.cstr()}, {str(self.preg)}, {str(self.reg)}, 0.0);"
 
      def astr(self):
-          val = ("%s%s\t%s%s, %s/z, %s%s, #0.0"
-                 % (self._name, self.condition.lower(), str(self.dest), self._width.astr(),
-                    str(self.preg), str(self.reg), self._width.astr()))
-          return val
+          return "%s%s\t%s%s, %s/z, %s%s, #0.0" % (
+              self._name,
+              self.condition.lower(),
+              str(self.dest),
+              self._width.astr(),
+              str(self.preg),
+              str(self.reg),
+              self._width.astr(),
+          )
 
 class SVEComparisonWithImm(Instruction):
     def __init__(self, arg):
@@ -563,15 +519,27 @@ class SVEComparisonWithImm(Instruction):
           return Instruction.generate(self)
 
     def cstr(self):
-          return ("%s(%s, %s, %s, %s, %s, %d);"
-                  % ("__ sve_" + self._name, "Assembler::" + self.condition,
-                     str(self.dest), self._width.cstr(), str(self.preg), str(self.reg), self.immed))
+         return "%s(%s, %s, %s, %s, %s, %d);" % (
+             f"__ sve_{self._name}",
+             f"Assembler::{self.condition}",
+             str(self.dest),
+             self._width.cstr(),
+             str(self.preg),
+             str(self.reg),
+             self.immed,
+         )
 
     def astr(self):
-          val = ("%s%s\t%s%s, %s/z, %s%s, #%d"
-                 % (self._name, self.condition.lower(), str(self.dest), self._width.astr(),
-                    str(self.preg), str(self.reg), self._width.astr(), self.immed))
-          return val
+         return "%s%s\t%s%s, %s/z, %s%s, #%d" % (
+             self._name,
+             self.condition.lower(),
+             str(self.dest),
+             self._width.astr(),
+             str(self.preg),
+             str(self.reg),
+             self._width.astr(),
+             self.immed,
+         )
 
 class MultiOp():
 
@@ -587,19 +555,15 @@ class MultiOp():
 class AbsOp(MultiOp, Instruction):
 
     def cstr(self):
-        return super(AbsOp, self).cstr() + "%s);"
+         return f"{super(AbsOp, self).cstr()}%s);"
 
     def astr(self):
-        return Instruction.astr(self) + "%s"
+         return f"{Instruction.astr(self)}%s"
 
 class RegAndAbsOp(MultiOp, Instruction):
 
     def multipleForms(self):
-        if self.name() == "adrp":
-            # We can only test one form of adrp because anything other
-            # than "adrp ." requires relocs in the assembler output
-            return 1
-        return 3
+         return 1 if self.name() == "adrp" else 3
 
     def generate(self):
         Instruction.generate(self)
@@ -607,10 +571,9 @@ class RegAndAbsOp(MultiOp, Instruction):
         return self
 
     def cstr(self):
-        if self.name() == "adrp":
-            return "__ _adrp(" + "%s, %s);" % (self.reg, "%s")
-        return (super(RegAndAbsOp, self).cstr()
-                + "%s, %s);" % (self.reg, "%s"))
+         if self.name() == "adrp":
+              return f"__ _adrp({self.reg}, %s);"
+         return f"{super(RegAndAbsOp, self).cstr()}{self.reg}, %s);"
 
     def astr(self):
         return (super(RegAndAbsOp, self).astr()
@@ -619,13 +582,10 @@ class RegAndAbsOp(MultiOp, Instruction):
 class RegImmAbsOp(RegAndAbsOp):
 
     def cstr(self):
-        return (Instruction.cstr(self)
-                + "%s, %s, %s);" % (self.reg, self.immed, "%s"))
+         return f"{Instruction.cstr(self)}{self.reg}, {self.immed}, %s);"
 
     def astr(self):
-        return (Instruction.astr(self)
-                + ("%s, #%s, %s"
-                   % (self.reg.astr(self.asmRegPrefix), self.immed, "%s")))
+         return f"{Instruction.astr(self)}{self.reg.astr(self.asmRegPrefix)}, #{self.immed}, %s"
 
     def generate(self):
         super(RegImmAbsOp, self).generate()
@@ -638,14 +598,10 @@ class MoveWideImmOp(RegImmAbsOp):
          return 0
 
     def cstr(self):
-        return (Instruction.cstr(self)
-                + "%s, %s, %s);" % (self.reg, self.immed, self.shift))
+         return f"{Instruction.cstr(self)}{self.reg}, {self.immed}, {self.shift});"
 
     def astr(self):
-        return (Instruction.astr(self)
-                + ("%s, #%s, lsl %s"
-                   % (self.reg.astr(self.asmRegPrefix),
-                      self.immed, self.shift)))
+         return f"{Instruction.astr(self)}{self.reg.astr(self.asmRegPrefix)}, #{self.immed}, lsl {self.shift}"
 
     def generate(self):
         super(RegImmAbsOp, self).generate()
@@ -659,14 +615,10 @@ class MoveWideImmOp(RegImmAbsOp):
 class BitfieldOp(TwoRegInstruction):
 
     def cstr(self):
-        return (Instruction.cstr(self)
-                + ("%s, %s, %s, %s);"
-                   % (self.reg[0], self.reg[1], self.immr, self.imms)))
+         return f"{Instruction.cstr(self)}{self.reg[0]}, {self.reg[1]}, {self.immr}, {self.imms});"
 
     def astr(self):
-        return (TwoRegInstruction.astr(self)
-                + (", #%s, #%s"
-                   % (self.immr, self.imms)))
+         return f"{TwoRegInstruction.astr(self)}, #{self.immr}, #{self.imms}"
 
     def generate(self):
         TwoRegInstruction.generate(self)
@@ -682,28 +634,26 @@ class ExtractOp(ThreeRegInstruction):
         return self
 
     def cstr(self):
-        return (ThreeRegInstruction.cstr(self)
-                + (", %s);" % self.lsb))
+         return f"{ThreeRegInstruction.cstr(self)}, {self.lsb});"
 
     def astr(self):
-        return (ThreeRegInstruction.astr(self)
-                + (", #%s" % self.lsb))
+         return f"{ThreeRegInstruction.astr(self)}, #{self.lsb}"
 
 class CondBranchOp(MultiOp, Instruction):
 
     def cstr(self):
-        return "__ br(Assembler::" + self.name() + ", %s);"
+         return f"__ br(Assembler::{self.name()}, %s);"
 
     def astr(self):
-        return "b." + self.name() + "\t%s"
+         return f"b.{self.name()}" + "\t%s"
 
 class ImmOp(Instruction):
 
     def cstr(self):
-        return "%s%s);" % (Instruction.cstr(self), self.immed)
+         return f"{Instruction.cstr(self)}{self.immed});"
 
     def astr(self):
-        return Instruction.astr(self) + "#" + str(self.immed)
+         return f"{Instruction.astr(self)}#{str(self.immed)}"
 
     def generate(self):
         self.immed = random.randint(0, 1<<16 -1)
@@ -712,7 +662,7 @@ class ImmOp(Instruction):
 class Op(Instruction):
 
     def cstr(self):
-        return Instruction.cstr(self) + ");"
+         return f"{Instruction.cstr(self)});"
     def astr(self):
         return self.aname();
 
@@ -736,7 +686,7 @@ class SystemOp(Instruction):
           return self
 
      def cstr(self):
-          return Instruction.cstr(self) + "Assembler::" + self.barrier + ");"
+          return f"{Instruction.cstr(self)}Assembler::{self.barrier});"
 
      def astr(self):
           return Instruction.astr(self) + self.barrier
@@ -753,8 +703,7 @@ class ConditionalCompareOp(TwoRegImmedInstruction):
         return self
 
     def cstr(self):
-        return (super(ConditionalCompareOp, self).cstr() + ", "
-                + "Assembler::" + conditionCodes[self.cond] + ");")
+         return f"{super(ConditionalCompareOp, self).cstr()}, Assembler::{conditionCodes[self.cond]});"
 
     def astr(self):
         return (super(ConditionalCompareOp, self).astr() +
@@ -785,17 +734,17 @@ class ConditionalCompareImmedOp(Instruction):
 class TwoRegOp(TwoRegInstruction):
 
     def cstr(self):
-        return TwoRegInstruction.cstr(self) + ");"
+         return f"{TwoRegInstruction.cstr(self)});"
 
 class ThreeRegOp(ThreeRegInstruction):
 
     def cstr(self):
-        return ThreeRegInstruction.cstr(self) + ");"
+         return f"{ThreeRegInstruction.cstr(self)});"
 
 class FourRegMulOp(FourRegInstruction):
 
     def cstr(self):
-        return FourRegInstruction.cstr(self) + ");"
+         return f"{FourRegInstruction.cstr(self)});"
 
     def astr(self):
         isMaddsub = self.name().startswith("madd") | self.name().startswith("msub")
@@ -814,8 +763,7 @@ class ConditionalSelectOp(ThreeRegInstruction):
         return self
 
     def cstr(self):
-        return (ThreeRegInstruction.cstr(self) + ", "
-                + "Assembler::" + conditionCodes[self.cond] + ");")
+         return f"{ThreeRegInstruction.cstr(self)}, Assembler::{conditionCodes[self.cond]});"
 
     def astr(self):
         return (ThreeRegInstruction.astr(self)
@@ -828,18 +776,18 @@ class LoadStoreExclusiveOp(InstructionWithModes):
         self.num_registers = op[2]
 
     def astr(self):
-        result = self.aname() + '\t'
-        regs = list(self.regs)
-        index = regs.pop() # The last reg is the index register
-        prefix = ('x' if (self.mode == 'x')
-                  & ((self.name().startswith("ld"))
-                     | (self.name().startswith("stlr"))) # Ewww :-(
-                  else 'w')
-        result = result + regs.pop(0).astr(prefix) + ", "
-        for s in regs:
-            result = result + s.astr(self.asmRegPrefix) + ", "
-        result = result + "[" + index.astr("x") + "]"
-        return result
+         result = self.aname() + '\t'
+         regs = list(self.regs)
+         index = regs.pop() # The last reg is the index register
+         prefix = ('x' if (self.mode == 'x')
+                   & ((self.name().startswith("ld"))
+                      | (self.name().startswith("stlr"))) # Ewww :-(
+                   else 'w')
+         result = result + regs.pop(0).astr(prefix) + ", "
+         for s in regs:
+             result = result + s.astr(self.asmRegPrefix) + ", "
+         result = f"{result}[" + index.astr("x") + "]"
+         return result
 
     def cstr(self):
         result = InstructionWithModes.cstr(self)
@@ -860,16 +808,13 @@ class LoadStoreExclusiveOp(InstructionWithModes):
         self.regs.append(newReg)
 
     def generate(self):
-        self.regs = []
-        for i in range(self.num_registers):
-            self.appendUniqueReg()
-        return self
+         self.regs = []
+         for _ in range(self.num_registers):
+              self.appendUniqueReg()
+         return self
 
     def name(self):
-        if self.mode == 'x':
-            return self._name
-        else:
-            return self._name + self.mode
+         return self._name if self.mode == 'x' else self._name + self.mode
 
     def aname(self):
         if (self.mode == 'b') | (self.mode == 'h'):
@@ -908,45 +853,53 @@ class Address(object):
         return self
 
     def __str__(self):
-        result = {
-            Address.base_plus_unscaled_offset: "Address(%s, %s)" \
-                % (str(self.base), self.offset),
-            Address.pre: "Address(__ pre(%s, %s))" % (str(self.base), self.offset),
-            Address.post: "Address(__ post(%s, %s))" % (str(self.base), self.offset),
-            Address.post_reg: "Address(__ post(%s, %s))" % (str(self.base), self.index),
-            Address.base_only: "Address(%s)" % (str(self.base)),
-            Address.pcrel: "",
-            Address.base_plus_reg: "Address(%s, %s, Address::%s(%s))" \
-                % (self.base, self.index, self.extend_kind, self.shift_distance),
-            Address.base_plus_scaled_offset:
-            "Address(%s, %s)" % (self.base, self.offset) } [self.kind]
-        if (self.kind == Address.pcrel):
-            result = ["__ pc()", "back", "forth"][self.offset]
-        return result
+         return ([
+             "__ pc()", "back", "forth"
+         ][self.offset] if (self.kind == Address.pcrel) else {
+             Address.base_plus_unscaled_offset:
+             f"Address({str(self.base)}, {self.offset})",
+             Address.pre:
+             f"Address(__ pre({str(self.base)}, {self.offset}))",
+             Address.post:
+             f"Address(__ post({str(self.base)}, {self.offset}))",
+             Address.post_reg:
+             f"Address(__ post({str(self.base)}, {self.index}))",
+             Address.base_only:
+             f"Address({str(self.base)})",
+             Address.pcrel:
+             "",
+             Address.base_plus_reg:
+             f"Address({self.base}, {self.index}, Address::{self.extend_kind}({self.shift_distance}))",
+             Address.base_plus_scaled_offset:
+             f"Address({self.base}, {self.offset})",
+         }[self.kind])
 
     def astr(self, prefix):
-        extend_prefix = prefix
-        if self.kind == Address.base_plus_reg:
-            if self.extend_kind.endswith("w"):
-                extend_prefix = "w"
-        result = {
-            Address.base_plus_unscaled_offset: "[%s, %s]" \
-                 % (self.base.astr(prefix), self.offset),
-            Address.pre: "[%s, %s]!" % (self.base.astr(prefix), self.offset),
-            Address.post: "[%s], %s" % (self.base.astr(prefix), self.offset),
-            Address.post_reg: "[%s], %s" % (self.base.astr(prefix), self.index.astr(prefix)),
-            Address.base_only: "[%s]" %  (self.base.astr(prefix)),
-            Address.pcrel: "",
-            Address.base_plus_reg: "[%s, %s, %s #%s]" \
-                % (self.base.astr(prefix), self.index.astr(extend_prefix),
-                   self.extend_kind, self.shift_distance),
-            Address.base_plus_scaled_offset: \
-                "[%s, %s]" \
-                % (self.base.astr(prefix), self.offset)
-            } [self.kind]
-        if (self.kind == Address.pcrel):
-            result = [".", "back", "forth"][self.offset]
-        return result
+         extend_prefix = prefix
+         if self.extend_kind.endswith("w"):
+              if self.kind == Address.base_plus_reg:
+                   extend_prefix = "w"
+         result = {
+             Address.base_plus_unscaled_offset:
+             f"[{self.base.astr(prefix)}, {self.offset}]",
+             Address.pre:
+             f"[{self.base.astr(prefix)}, {self.offset}]!",
+             Address.post:
+             f"[{self.base.astr(prefix)}], {self.offset}",
+             Address.post_reg:
+             f"[{self.base.astr(prefix)}], {self.index.astr(prefix)}",
+             Address.base_only:
+             f"[{self.base.astr(prefix)}]",
+             Address.pcrel:
+             "",
+             Address.base_plus_reg:
+             f"[{self.base.astr(prefix)}, {self.index.astr(extend_prefix)}, {self.extend_kind} #{self.shift_distance}]",
+             Address.base_plus_scaled_offset:
+             f"[{self.base.astr(prefix)}, {self.offset}]",
+         }[self.kind]
+         if (self.kind == Address.pcrel):
+             result = [".", "back", "forth"][self.offset]
+         return result
 
 class LoadStoreOp(InstructionWithModes):
 
@@ -956,48 +909,45 @@ class LoadStoreOp(InstructionWithModes):
 
     def generate(self):
 
-        # This is something of a kludge, but the offset needs to be
-        # scaled by the memory datamode somehow.
-        shift = 3
-        if (self.mode == 'b') | (self.asmname.endswith("b")):
-            shift = 0
-        elif (self.mode == 'h') | (self.asmname.endswith("h")):
-            shift = 1
-        elif (self.mode == 'w') | (self.asmname.endswith("w")) \
-                | (self.mode == 's') :
-            shift = 2
+         # This is something of a kludge, but the offset needs to be
+         # scaled by the memory datamode somehow.
+         shift = 3
+         if (self.mode == 'b') | (self.asmname.endswith("b")):
+             shift = 0
+         elif (self.mode == 'h') | (self.asmname.endswith("h")):
+             shift = 1
+         elif (self.mode == 'w') | (self.asmname.endswith("w")) \
+                     | (self.mode == 's') :
+             shift = 2
 
-        self.adr = Address().generate(self.kind, shift)
+         self.adr = Address().generate(self.kind, shift)
 
-        isFloat = (self.mode == 'd') | (self.mode == 's')
+         isFloat = (self.mode == 'd') | (self.mode == 's')
 
-        regMode = FloatRegister if isFloat else GeneralRegister
-        self.reg = regMode().generate()
-        kindStr = Address.kindToStr(self.kind);
-        if (not isFloat) and (kindStr is "pre" or kindStr is "post"):
-            (self.reg.number, self.adr.base.number) = random.sample(list(set(range(31)) - set([18])), 2)
-        return self
+         regMode = FloatRegister if isFloat else GeneralRegister
+         self.reg = regMode().generate()
+         kindStr = Address.kindToStr(self.kind);
+         if (not isFloat) and (kindStr is "pre" or kindStr is "post"):
+              (self.reg.number,
+               self.adr.base.number) = random.sample(list(set(range(31)) - {18}),
+                                                     2)
+         return self
 
     def cstr(self):
-        if not(self._name.startswith("prfm")):
-            return "%s%s, %s);" % (Instruction.cstr(self), str(self.reg), str(self.adr))
-        else: # No target register for a prefetch
-            return "%s%s);" % (Instruction.cstr(self), str(self.adr))
+         if not(self._name.startswith("prfm")):
+              return f"{Instruction.cstr(self)}{str(self.reg)}, {str(self.adr)});"
+         else: # No target register for a prefetch
+              return f"{Instruction.cstr(self)}{str(self.adr)});"
 
     def astr(self):
-        if not(self._name.startswith("prfm")):
-            return "%s\t%s, %s" % (self.aname(), self.reg.astr(self.asmRegPrefix),
-                                     self.adr.astr("x"))
-        else: # No target register for a prefetch
-            return "%s %s" % (self.aname(),
-                                     self.adr.astr("x"))
+         if not(self._name.startswith("prfm")):
+              return "%s\t%s, %s" % (self.aname(), self.reg.astr(self.asmRegPrefix),
+                                       self.adr.astr("x"))
+         else: # No target register for a prefetch
+              return f'{self.aname()} {self.adr.astr("x")}'
 
     def aname(self):
-         result = self.asmname
-         # if self.kind == Address.base_plus_unscaled_offset:
-         #      result = result.replace("ld", "ldu", 1)
-         #      result = result.replace("st", "stu", 1)
-         return result
+         return self.asmname
 
 class LoadStorePairOp(InstructionWithModes):
 
@@ -1009,48 +959,57 @@ class LoadStorePairOp(InstructionWithModes):
           self.offset = random.randint(-1<<4, 1<<4-1) << 4
 
      def generate(self):
-          self.reg = [OperandFactory.create(self.mode).generate()
-                      for i in range(self.numRegs)]
+          self.reg = [
+              OperandFactory.create(self.mode).generate()
+              for _ in range(self.numRegs)
+          ]
           self.base = OperandFactory.create('x').generate()
           kindStr = Address.kindToStr(self.kind);
           if kindStr is "pre" or kindStr is "post":
-              if self._name.startswith("ld"):
-                  (self.reg[0].number, self.reg[1].number, self.base.number) = random.sample(list(set(range(31)) - set([18])), 3)
-              if self._name.startswith("st"):
-                  self.base.number = random.choice(list(set(range(31)) - set([self.reg[0].number, self.reg[1].number, 18])))
+               if self._name.startswith("ld"):
+                    (
+                        self.reg[0].number,
+                        self.reg[1].number,
+                        self.base.number,
+                    ) = random.sample(list(set(range(31)) - {18}), 3)
+               if self._name.startswith("st"):
+                    self.base.number = random.choice(
+                        list(
+                            set(range(31)) -
+                            {self.reg[0].number, self.reg[1].number, 18}))
           elif self._name.startswith("ld"):
-              (self.reg[0].number, self.reg[1].number) = random.sample(list(set(range(31)) - set([18])), 2)
+               (self.reg[0].number,
+                self.reg[1].number) = random.sample(list(set(range(31)) - {18}), 2)
           return self
 
      def astr(self):
           address = ["[%s, #%s]", "[%s, #%s]!", "[%s], #%s"][self.kind]
           address = address % (self.base.astr('x'), self.offset)
-          result = "%s\t%s, %s, %s" \
-              % (self.asmname,
-                 self.reg[0].astr(self.asmRegPrefix),
-                 self.reg[1].astr(self.asmRegPrefix), address)
-          return result
+          return "%s\t%s, %s, %s" % (
+              self.asmname,
+              self.reg[0].astr(self.asmRegPrefix),
+              self.reg[1].astr(self.asmRegPrefix),
+              address,
+          )
 
      def cstr(self):
           address = {
-               Address.base_plus_unscaled_offset: "Address(%s, %s)" \
-                    % (str(self.base), self.offset),
-               Address.pre: "Address(__ pre(%s, %s))" % (str(self.base), self.offset),
-               Address.post: "Address(__ post(%s, %s))" % (str(self.base), self.offset),
-               } [self.kind]
-          result = "__ %s(%s, %s, %s);" \
-              % (self.name(), self.reg[0], self.reg[1], address)
-          return result
+              Address.base_plus_unscaled_offset:
+              f"Address({str(self.base)}, {self.offset})",
+              Address.pre: f"Address(__ pre({str(self.base)}, {self.offset}))",
+              Address.post: f"Address(__ post({str(self.base)}, {self.offset}))",
+          }[self.kind]
+          return f"__ {self.name()}({self.reg[0]}, {self.reg[1]}, {address});"
 
 class FloatInstruction(Instruction):
 
     def aname(self):
-        if (self._name in ["fcvtsh", "fcvths"]):
-            return self._name[:len(self._name)-2]
-        elif (self._name.endswith("s") | self._name.endswith("d")):
-            return self._name[:len(self._name)-1]
-        else:
-            return self._name
+         if (self._name in ["fcvtsh", "fcvths"]):
+              return self._name[:len(self._name)-2]
+         elif (self._name.endswith("s") | self._name.endswith("d")):
+              return self._name[:-1]
+         else:
+              return self._name
 
     def __init__(self, args):
         name, self.modes = args
@@ -1062,88 +1021,84 @@ class FloatInstruction(Instruction):
         return self
 
     def cstr(self):
-        formatStr = "%s%s" + ''.join([", %s" for i in range(1, self.numRegs)] + [");"])
-        return (formatStr
-                % tuple([Instruction.cstr(self)] +
-                        [str(self.reg[i]) for i in range(self.numRegs)])) # Yowza
+         formatStr = "%s%s" + ''.join([", %s" for _ in range(1, self.numRegs)] + [");"])
+         return (formatStr
+                 % tuple([Instruction.cstr(self)] +
+                         [str(self.reg[i]) for i in range(self.numRegs)])) # Yowza
 
     def astr(self):
-        formatStr = "%s%s" + ''.join([", %s" for i in range(1, self.numRegs)])
-        return (formatStr
-                % tuple([Instruction.astr(self)] +
-                        [(self.reg[i].astr(self.modes[i])) for i in range(self.numRegs)]))
+         formatStr = "%s%s" + ''.join([", %s" for _ in range(1, self.numRegs)])
+         return (formatStr
+                 % tuple([Instruction.astr(self)] +
+                         [(self.reg[i].astr(self.modes[i])) for i in range(self.numRegs)]))
 
 class SVEVectorOp(Instruction):
     def __init__(self, args):
-        name = args[0]
-        regTypes = args[1]
-        regs = []
-        for c in regTypes:
-            regs.append(OperandFactory.create(c).generate())
-        self.reg = regs
-        self.numRegs = len(regs)
-        if regTypes[0] != "p" and regTypes[1] == 'P':
-           self._isPredicated = True
-           assert len(args) > 2, "Must specify predicate type"
-           for arg in args[2:]:
-              if arg == 'm':
-                 self._merge = "/m"
-              elif arg == 'z':
-                 self._merge = "/z"
-              else:
-                 assert arg == "dn", "Unknown predicate type"
-        else:
-           self._isPredicated = False
-           self._merge = ""
+         name = args[0]
+         regTypes = args[1]
+         regs = [OperandFactory.create(c).generate() for c in regTypes]
+         self.reg = regs
+         self.numRegs = len(regs)
+         if regTypes[0] != "p" and regTypes[1] == 'P':
+            self._isPredicated = True
+            assert len(args) > 2, "Must specify predicate type"
+            for arg in args[2:]:
+               if arg == 'm':
+                  self._merge = "/m"
+               elif arg == 'z':
+                  self._merge = "/z"
+               else:
+                  assert arg == "dn", "Unknown predicate type"
+         else:
+            self._isPredicated = False
+            self._merge = ""
 
-        self._bitwiseop = False
-        if name[0] == 'f':
-            self._width = RegVariant(2, 3)
-        elif not self._isPredicated and (name in ["and", "eor", "orr", "bic", "eor3"]):
-            self._width = RegVariant(3, 3)
-            self._bitwiseop = True
-        elif name == "revb":
-            self._width = RegVariant(1, 3)
-        else:
-            self._width = RegVariant(0, 3)
+         self._bitwiseop = False
+         if name[0] == 'f':
+             self._width = RegVariant(2, 3)
+         elif not self._isPredicated and (name in ["and", "eor", "orr", "bic", "eor3"]):
+             self._width = RegVariant(3, 3)
+             self._bitwiseop = True
+         elif name == "revb":
+             self._width = RegVariant(1, 3)
+         else:
+             self._width = RegVariant(0, 3)
 
-        self._dnm = None
-        if len(args) > 2:
-           for arg in args[2:]:
-             if arg == "dn":
-               self._dnm = arg
+         self._dnm = None
+         if len(args) > 2:
+            for arg in args[2:]:
+              if arg == "dn":
+                self._dnm = arg
 
-        Instruction.__init__(self, name)
+         Instruction.__init__(self, name)
 
     def cstr(self):
-        formatStr = "%s%s" + ''.join([", %s" for i in range(0, self.numRegs)] + [");"])
-        if self._bitwiseop:
-            width = []
-            formatStr = "%s%s" + ''.join([", %s" for i in range(1, self.numRegs)] + [");"])
-        else:
-            width = [self._width.cstr()]
-        return (formatStr
-                % tuple(["__ sve_" + self._name + "("] +
-                        [str(self.reg[0])] +
-                        width +
-                        [str(self.reg[i]) for i in range(1, self.numRegs)]))
+         formatStr = "%s%s" + ''.join([", %s" for _ in range(0, self.numRegs)] + [");"])
+         if self._bitwiseop:
+              width = []
+              formatStr = "%s%s" + ''.join([", %s" for _ in range(1, self.numRegs)] + [");"])
+         else:
+              width = [self._width.cstr()]
+         return formatStr % tuple(
+             ((([f"__ sve_{self._name}("] + [str(self.reg[0])]) + width) +
+              [str(self.reg[i]) for i in range(1, self.numRegs)]))
     def astr(self):
-        firstArg = 0 if self._name == "eor3" else 1
-        formatStr = "%s%s" + ''.join([", %s" for i in range(firstArg, self.numRegs)])
-        if self._dnm == 'dn':
-            formatStr += ", %s"
-            dnReg = [str(self.reg[0]) + self._width.astr()]
-        else:
-            dnReg = []
+         firstArg = 0 if self._name == "eor3" else 1
+         formatStr = "%s%s" + ''.join([", %s" for _ in range(firstArg, self.numRegs)])
+         if self._dnm == 'dn':
+             formatStr += ", %s"
+             dnReg = [str(self.reg[0]) + self._width.astr()]
+         else:
+             dnReg = []
 
-        if self._isPredicated:
-            restRegs = [str(self.reg[1]) + self._merge] + dnReg + [str(self.reg[i]) + self._width.astr() for i in range(2, self.numRegs)]
-        else:
-            restRegs = dnReg + [str(self.reg[i]) + self._width.astr() for i in range(firstArg, self.numRegs)]
-        return (formatStr
-                % tuple([Instruction.astr(self)] +
-                        [str(self.reg[0]) + self._width.astr()] +
-                        restRegs))
+         if self._isPredicated:
+             restRegs = [str(self.reg[1]) + self._merge] + dnReg + [str(self.reg[i]) + self._width.astr() for i in range(2, self.numRegs)]
+         else:
+             restRegs = dnReg + [str(self.reg[i]) + self._width.astr() for i in range(firstArg, self.numRegs)]
+         return (formatStr
+                 % tuple([Instruction.astr(self)] +
+                         [str(self.reg[0]) + self._width.astr()] +
+                         restRegs))
     def generate(self):
         return self
 
@@ -1158,61 +1113,56 @@ class SVEReductionOp(Instruction):
         self.reg.append(OperandFactory.create('Z').generate())
         self._width = RegVariant(lowRegType, 3)
     def cstr(self):
-        return "__ sve_%s(%s, %s, %s, %s);" % (self.name(),
-                                              str(self.reg[0]),
-                                              self._width.cstr(),
-                                              str(self.reg[1]),
-                                              str(self.reg[2]))
+         return f"__ sve_{self.name()}({str(self.reg[0])}, {self._width.cstr()}, {str(self.reg[1])}, {str(self.reg[2])});"
     def astr(self):
-        if self.name() == "uaddv":
-            dstRegName = "d" + str(self.reg[0].number)
-        else:
-            dstRegName = self._width.astr()[1] + str(self.reg[0].number)
-        formatStr = "%s %s, %s, %s"
-        if self.name() == "fadda":
-            formatStr += ", %s"
-            moreReg = [dstRegName]
-        else:
-            moreReg = []
-        return formatStr % tuple([self.name()] +
-                                 [dstRegName] +
-                                 [str(self.reg[1])] +
-                                 moreReg +
-                                 [str(self.reg[2]) + self._width.astr()])
+         if self.name() == "uaddv":
+              dstRegName = f"d{str(self.reg[0].number)}"
+         else:
+              dstRegName = self._width.astr()[1] + str(self.reg[0].number)
+         formatStr = "%s %s, %s, %s"
+         if self.name() == "fadda":
+             formatStr += ", %s"
+             moreReg = [dstRegName]
+         else:
+             moreReg = []
+         return formatStr % tuple([self.name()] +
+                                  [dstRegName] +
+                                  [str(self.reg[1])] +
+                                  moreReg +
+                                  [str(self.reg[2]) + self._width.astr()])
 
 class LdStNEONOp(Instruction):
     def __init__(self, args):
         self._name, self.regnum, self.arrangement, self.addresskind = args
 
     def generate(self):
-        self.address = Address().generate(self.addresskind, 0)
-        self._firstSIMDreg = FloatRegister().generate()
-        if (self.addresskind  == Address.post):
-            if (self._name in ["ld1r", "ld2r", "ld3r", "ld4r"]):
-                elem_size = {"8B" : 1, "16B" : 1, "4H" : 2, "8H" : 2, "2S" : 4, "4S" : 4, "1D" : 8, "2D" : 8} [self.arrangement]
-                self.address.offset = self.regnum * elem_size
-            else:
-                if (self.arrangement in ["8B", "4H", "2S", "1D"]):
-                    self.address.offset = self.regnum * 8
-                else:
-                    self.address.offset = self.regnum * 16
-        return self
+         self.address = Address().generate(self.addresskind, 0)
+         self._firstSIMDreg = FloatRegister().generate()
+         if (self.addresskind  == Address.post):
+              if (self._name in ["ld1r", "ld2r", "ld3r", "ld4r"]):
+                   elem_size = {"8B" : 1, "16B" : 1, "4H" : 2, "8H" : 2, "2S" : 4, "4S" : 4, "1D" : 8, "2D" : 8} [self.arrangement]
+                   self.address.offset = self.regnum * elem_size
+              elif (self.arrangement in ["8B", "4H", "2S", "1D"]):
+                   self.address.offset = self.regnum * 8
+              else:
+                   self.address.offset = self.regnum * 16
+         return self
 
     def cstr(self):
-        buf = super(LdStNEONOp, self).cstr() + str(self._firstSIMDreg)
-        current = self._firstSIMDreg
-        for cnt in range(1, self.regnum):
-            buf = '%s, %s' % (buf, current.nextReg())
-            current = current.nextReg()
-        return '%s, __ T%s, %s);' % (buf, self.arrangement, str(self.address))
+         buf = super(LdStNEONOp, self).cstr() + str(self._firstSIMDreg)
+         current = self._firstSIMDreg
+         for _ in range(1, self.regnum):
+              buf = f'{buf}, {current.nextReg()}'
+              current = current.nextReg()
+         return f'{buf}, __ T{self.arrangement}, {str(self.address)});'
 
     def astr(self):
-        buf = '%s\t{%s.%s' % (self._name, self._firstSIMDreg, self.arrangement)
-        current = self._firstSIMDreg
-        for cnt in range(1, self.regnum):
-            buf = '%s, %s.%s' % (buf, current.nextReg(), self.arrangement)
-            current = current.nextReg()
-        return  '%s}, %s' % (buf, self.address.astr("x"))
+         buf = '%s\t{%s.%s' % (self._name, self._firstSIMDreg, self.arrangement)
+         current = self._firstSIMDreg
+         for _ in range(1, self.regnum):
+              buf = f'{buf}, {current.nextReg()}.{self.arrangement}'
+              current = current.nextReg()
+         return  '%s}, %s' % (buf, self.address.astr("x"))
 
     def aname(self):
          return self._name
@@ -1228,17 +1178,17 @@ class NEONReduceInstruction(Instruction):
         return self
 
     def cstr(self):
-        buf = Instruction.cstr(self) + str(self.dstSIMDreg)
-        if self._name == "fmaxp" or self._name == "fminp":
-            buf = '%s, %s, __ %s);' % (buf, self.srcSIMDreg, self.arrangement[1:])
-        else:
-            buf = '%s, __ T%s, %s);' % (buf, self.arrangement, self.srcSIMDreg)
-        return buf
+         buf = Instruction.cstr(self) + str(self.dstSIMDreg)
+         if self._name in ["fmaxp", "fminp"]:
+              buf = f'{buf}, {self.srcSIMDreg}, __ {self.arrangement[1:]});'
+         else:
+              buf = f'{buf}, __ T{self.arrangement}, {self.srcSIMDreg});'
+         return buf
 
     def astr(self):
-        buf = '%s\t%s' % (self.insname, self.dstSIMDreg.astr(self.arrangement[-1].lower()))
-        buf = '%s, %s.%s' % (buf, self.srcSIMDreg, self.arrangement)
-        return buf
+         buf = '%s\t%s' % (self.insname, self.dstSIMDreg.astr(self.arrangement[-1].lower()))
+         buf = f'{buf}, {self.srcSIMDreg}.{self.arrangement}'
+         return buf
 
     def aname(self):
         return self._name
@@ -1252,21 +1202,21 @@ class CommonNEONInstruction(Instruction):
         return self
 
     def cstr(self):
-        buf = Instruction.cstr(self) + str(self._firstSIMDreg)
-        buf = '%s, __ T%s' % (buf, self.arrangement)
-        current = self._firstSIMDreg
-        for cnt in range(1, self.numRegs):
-            buf = '%s, %s' % (buf, current.nextReg())
-            current = current.nextReg()
-        return '%s);' % (buf)
+         buf = Instruction.cstr(self) + str(self._firstSIMDreg)
+         buf = f'{buf}, __ T{self.arrangement}'
+         current = self._firstSIMDreg
+         for _ in range(1, self.numRegs):
+              buf = f'{buf}, {current.nextReg()}'
+              current = current.nextReg()
+         return f'{buf});'
 
     def astr(self):
-        buf = '%s\t%s.%s' % (self.insname, self._firstSIMDreg, self.arrangement)
-        current = self._firstSIMDreg
-        for cnt in range(1, self.numRegs):
-            buf = '%s, %s.%s' % (buf, current.nextReg(), self.arrangement)
-            current = current.nextReg()
-        return buf
+         buf = '%s\t%s.%s' % (self.insname, self._firstSIMDreg, self.arrangement)
+         current = self._firstSIMDreg
+         for _ in range(1, self.numRegs):
+              buf = f'{buf}, {current.nextReg()}.{self.arrangement}'
+              current = current.nextReg()
+         return buf
 
     def aname(self):
         return self._name
@@ -1282,12 +1232,10 @@ class SHA512SIMDOp(Instruction):
         return self
 
     def cstr(self):
-        if (self._name == 'sha512su0'):
-            return (super(SHA512SIMDOp, self).cstr()
-                    + ('%s, __ T2D, %s);' % (self.reg[0], self.reg[1])))
-        else:
-            return (super(SHA512SIMDOp, self).cstr()
-                    + ('%s, __ T2D, %s, %s);' % (self.reg[0], self.reg[1], self.reg[2])))
+         if (self._name == 'sha512su0'):
+              return f'{super(SHA512SIMDOp, self).cstr()}{self.reg[0]}, __ T2D, {self.reg[1]});'
+         else:
+              return f'{super(SHA512SIMDOp, self).cstr()}{self.reg[0]}, __ T2D, {self.reg[1]}, {self.reg[2]});'
 
     def astr(self):
         if (self._name == 'sha512su0'):
@@ -1305,57 +1253,54 @@ class SHA512SIMDOp(Instruction):
 class SHA3SIMDOp(Instruction):
 
     def generate(self):
-        if ((self._name == 'eor3') or (self._name == 'bcax')):
-            self.reg = [FloatRegister().generate(), FloatRegister().generate(),
-                        FloatRegister().generate(), FloatRegister().generate()]
-        else:
-            self.reg = [FloatRegister().generate(), FloatRegister().generate(),
-                        FloatRegister().generate()]
-            if (self._name == 'xar'):
-                self.imm6 = random.randint(0, 63)
-        return self
+         if self._name in ['eor3', 'bcax']:
+              self.reg = [FloatRegister().generate(), FloatRegister().generate(),
+                          FloatRegister().generate(), FloatRegister().generate()]
+         else:
+              self.reg = [FloatRegister().generate(), FloatRegister().generate(),
+                          FloatRegister().generate()]
+              if (self._name == 'xar'):
+                  self.imm6 = random.randint(0, 63)
+         return self
 
     def cstr(self):
-        if ((self._name == 'eor3') or (self._name == 'bcax')):
-            return (super(SHA3SIMDOp, self).cstr()
-                    + ('%s, __ T16B, %s, %s, %s);' % (self.reg[0], self.reg[1], self.reg[2], self.reg[3])))
-        elif (self._name == 'rax1'):
-            return (super(SHA3SIMDOp, self).cstr()
-                    + ('%s, __ T2D, %s, %s);' % (self.reg[0], self.reg[1], self.reg[2])))
-        else:
-            return (super(SHA3SIMDOp, self).cstr()
-                    + ('%s, __ T2D, %s, %s, %s);' % (self.reg[0], self.reg[1], self.reg[2], self.imm6)))
+         if self._name in ['eor3', 'bcax']:
+              return f'{super(SHA3SIMDOp, self).cstr()}{self.reg[0]}, __ T16B, {self.reg[1]}, {self.reg[2]}, {self.reg[3]});'
+         elif (self._name == 'rax1'):
+              return f'{super(SHA3SIMDOp, self).cstr()}{self.reg[0]}, __ T2D, {self.reg[1]}, {self.reg[2]});'
+         else:
+              return f'{super(SHA3SIMDOp, self).cstr()}{self.reg[0]}, __ T2D, {self.reg[1]}, {self.reg[2]}, {self.imm6});'
 
     def astr(self):
-        if ((self._name == 'eor3') or (self._name == 'bcax')):
-            return (super(SHA3SIMDOp, self).astr()
-                    + ('\t%s.16B, %s.16B, %s.16B, %s.16B' % (self.reg[0].astr("v"), self.reg[1].astr("v"),
-                        self.reg[2].astr("v"), self.reg[3].astr("v"))))
-        elif (self._name == 'rax1'):
-            return (super(SHA3SIMDOp, self).astr()
-                    + ('\t%s.2D, %s.2D, %s.2D') % (self.reg[0].astr("v"), self.reg[1].astr("v"),
-                        self.reg[2].astr("v")))
-        else:
-            return (super(SHA3SIMDOp, self).astr()
-                    + ('\t%s.2D, %s.2D, %s.2D, #%s') % (self.reg[0].astr("v"), self.reg[1].astr("v"),
-                        self.reg[2].astr("v"), self.imm6))
+         if self._name in ['eor3', 'bcax']:
+              return (super(SHA3SIMDOp, self).astr()
+                      + ('\t%s.16B, %s.16B, %s.16B, %s.16B' % (self.reg[0].astr("v"), self.reg[1].astr("v"),
+                          self.reg[2].astr("v"), self.reg[3].astr("v"))))
+         elif (self._name == 'rax1'):
+             return (super(SHA3SIMDOp, self).astr()
+                     + ('\t%s.2D, %s.2D, %s.2D') % (self.reg[0].astr("v"), self.reg[1].astr("v"),
+                         self.reg[2].astr("v")))
+         else:
+              return (super(SHA3SIMDOp, self).astr()
+                      + ('\t%s.2D, %s.2D, %s.2D, #%s') % (self.reg[0].astr("v"), self.reg[1].astr("v"),
+                          self.reg[2].astr("v"), self.imm6))
 
 class LSEOp(Instruction):
     def __init__(self, args):
         self._name, self.asmname, self.size, self.suffix = args
 
     def generate(self):
-        self._name = "%s%s" % (self._name, self.suffix)
-        self.asmname = "%s%s" % (self.asmname, self.suffix)
-        self.srcReg = GeneralRegisterOrZr().generate()
-        self.tgtReg = GeneralRegisterOrZr().generate()
-        self.adrReg = GeneralRegisterOrSp().generate()
+         self._name = f"{self._name}{self.suffix}"
+         self.asmname = f"{self.asmname}{self.suffix}"
+         self.srcReg = GeneralRegisterOrZr().generate()
+         self.tgtReg = GeneralRegisterOrZr().generate()
+         self.adrReg = GeneralRegisterOrSp().generate()
 
-        return self
+         return self
 
     def cstr(self):
-        sizeSpec = {"x" : "Assembler::xword", "w" : "Assembler::word"} [self.size]
-        return super(LSEOp, self).cstr() + "%s, %s, %s, %s);" % (sizeSpec, self.srcReg, self.tgtReg, self.adrReg)
+         sizeSpec = {"x" : "Assembler::xword", "w" : "Assembler::word"} [self.size]
+         return f"{super(LSEOp, self).cstr()}{sizeSpec}, {self.srcReg}, {self.tgtReg}, {self.adrReg});"
 
     def astr(self):
         return "%s\t%s, %s, [%s]" % (self.asmname, self.srcReg.astr(self.size), self.tgtReg.astr(self.size), self.adrReg.astr("x"))
@@ -1397,12 +1342,7 @@ class NEONFloatCompareWithZero(TwoRegNEONOp):
         self.insname = self._name + (self.condition).lower()
 
     def cstr(self):
-        return ("%s(%s, %s, %s, %s);"
-                % ("__ " + self._name,
-                   "Assembler::" + self.condition,
-                   self._firstSIMDreg,
-                   "__ T" + self.arrangement,
-                   self._firstSIMDreg.nextReg()))
+         return f"__ {self._name}(Assembler::{self.condition}, {self._firstSIMDreg}, __ T{self.arrangement}, {self._firstSIMDreg.nextReg()});"
 
     def astr(self):
         return ("%s\t%s.%s, %s.%s, #0.0"
@@ -1418,13 +1358,7 @@ class NEONVectorCompare(ThreeRegNEONOp):
         self.insname = self._name + (self.condition).lower()
 
     def cstr(self):
-        return ("%s(%s, %s, %s, %s, %s);"
-                % ("__ " + self._name,
-                   "Assembler::" + self.condition,
-                   self._firstSIMDreg,
-                   "__ T" + self.arrangement,
-                   self._firstSIMDreg.nextReg(),
-                   self._firstSIMDreg.nextReg().nextReg()))
+         return f"__ {self._name}(Assembler::{self.condition}, {self._firstSIMDreg}, __ T{self.arrangement}, {self._firstSIMDreg.nextReg()}, {self._firstSIMDreg.nextReg().nextReg()});"
 
     def astr(self):
         return ("%s\t%s.%s, %s.%s, %s.%s"

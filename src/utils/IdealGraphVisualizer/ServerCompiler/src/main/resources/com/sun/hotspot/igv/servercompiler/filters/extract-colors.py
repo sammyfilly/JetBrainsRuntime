@@ -35,7 +35,11 @@ n    = args.steps
 
 for step in range(n + 1):
     point = step / float(n)
-    rgb   = tuple([int(round(c * 255)) for c in cmap(point)[0:3]])
+    rgb = tuple(int(round(c * 255)) for c in cmap(point)[:3])
     hex   = '#%02x%02x%02x' % rgb
-    print("var step" + str(step) + "Color" + " = java.awt.Color.decode(\"" + \
-          hex + "\");")
+    print(
+        (
+            (f"var step{str(step)}Color" + " = java.awt.Color.decode(\"" + hex)
+            + "\");"
+        )
+    )
