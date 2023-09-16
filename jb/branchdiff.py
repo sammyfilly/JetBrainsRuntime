@@ -21,7 +21,7 @@ def error(msg):
 
 def verbose(options, *msg):
     if options.verbose:
-        sys.stderr.write(f"[verbose] ")
+        sys.stderr.write("[verbose] ")
         sys.stderr.write(*msg)
         sys.stderr.write('\n')
 
@@ -89,8 +89,7 @@ class GitRepo:
                 fatal(f"git returned non-zero code in {self.rootpath} ({first_line(p.stderr)})")
 
     def current_branch(self):
-        branch_name = self.run_git_cmd(["branch", "--show-current"]).strip()
-        return branch_name
+        return self.run_git_cmd(["branch", "--show-current"]).strip()
 
     def log(self, branch, path=None, limit=None):
         cmds = ["log", "--no-decorate", branch]
@@ -98,8 +97,7 @@ class GitRepo:
             cmds.extend(["-n", str(limit)])
         if path:
             cmds.append(path)
-        full_log = self.run_git_cmd(cmds)
-        return full_log
+        return self.run_git_cmd(cmds)
 
 
 class Commit:
@@ -214,11 +212,10 @@ def main():
 
                 if not history_to.contains(c):
                     commits_to_save.append(c)
-                else:
-                    if history_from.appears_more_than_once(c) and c.fullmessage not in warned:
-                        # Not sure which of those seemingly identical commits are present in the target branch
-                        error(f"Commit '{c.message}' appears more than once in branch '{options.frombranch}'. ")
-                        warned.add(c.fullmessage)
+                elif history_from.appears_more_than_once(c) and c.fullmessage not in warned:
+                    # Not sure which of those seemingly identical commits are present in the target branch
+                    error(f"Commit '{c.message}' appears more than once in branch '{options.frombranch}'. ")
+                    warned.add(c.fullmessage)
     except KeyboardInterrupt:
         fatal("Interrupted")
 
@@ -232,7 +229,7 @@ def save_commits_to_file(commits_to_save, options):
     if len(commits_to_save) > 0 and options.output:
         print()
         with open(options.output, "w") as out:
-            for i, c in enumerate(reversed(commits_to_save)):
+            for c in reversed(commits_to_save):
                 print(f"# {c.sha}", file=out)
                 print(c.message, file=out)
 
@@ -256,11 +253,10 @@ def print_out_commits(options, commits_to_save):
                 if len(bugurl) > 0:
                     msg = msg.replace(c.bugid, f"<a href='{bugurl}'>{c.bugid}</a>")
 
-                sha = f"<a href='https://jetbrains.team/p/jbre/repositories/jbr/commits?commits={c.sha}'>" \
-                      f"{c.sha[0:8]}</a>"
+                sha = f"<a href='https://jetbrains.team/p/jbre/repositories/jbr/commits?commits={c.sha}'>{c.sha[:8]}</a>"
                 print(f"<li>{msg} ({sha})</li>")
             else:
-                print(f"{c.message} ({c.sha[0:8]})")
+                print(f"{c.message} ({c.sha[:8]})")
     if options.ishtml:
         print("</body></html>")
 
